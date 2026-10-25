@@ -1,0 +1,6 @@
+{
+  "name": "FreshScan AI — Fruit Freshness Detection",
+  "description": "End-to-end machine learning application for fruit freshness classification using MobileNetV2 transfer learning, dataset diagnostics, holdout evaluation analytics, and real-time TensorFlow inference.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
