@@ -40,10 +40,6 @@ interface OverviewExperienceProps {
   onAddHistory: (entry: HistoryEntry) => void;
   onClearHistory: () => void;
   fileInputRef: React.RefObject<HTMLInputElement | null>;
-  scrollProgressRef: React.MutableRefObject<number>;
-  focusedFruit: SupportedFruitId | null;
-  onSelectFocusFruit: (fruit: SupportedFruitId | null) => void;
-  onScanningChange: (scanning: boolean) => void;
   onNavigateTab: (tab: ActiveTab) => void;
 }
 
@@ -152,10 +148,6 @@ export const OverviewExperience: React.FC<OverviewExperienceProps> = ({
   onAddHistory,
   onClearHistory,
   fileInputRef,
-  scrollProgressRef,
-  focusedFruit,
-  onSelectFocusFruit,
-  onScanningChange,
   onNavigateTab,
 }) => {
   const rootRef = useRef<HTMLDivElement | null>(null);
@@ -170,15 +162,10 @@ export const OverviewExperience: React.FC<OverviewExperienceProps> = ({
 
   const [activeSlideIdx, setActiveSlideIdx] = useState<number>(0);
   const activeSlideIdxRef = useRef<number>(0);
-  const onSelectFocusFruitRef = useRef(onSelectFocusFruit);
 
   const [queuedSample, setQueuedSample] = useState<SampleTestItem | null>(null);
   const [macroImgFailed, setMacroImgFailed] = useState(false);
   const [trayImgFailed, setTrayImgFailed] = useState(false);
-
-  useEffect(() => {
-    onSelectFocusFruitRef.current = onSelectFocusFruit;
-  }, [onSelectFocusFruit]);
 
   // Real metrics derived strictly from saved evaluation artifacts (never fabricated)
   const evalReport = analytics?.evaluation_report ?? null;
@@ -192,34 +179,23 @@ export const OverviewExperience: React.FC<OverviewExperienceProps> = ({
   const epoch1ProbePct =
     trainHist && trainHist.epochs.length > 0 ? trainHist.epochs[0].val_accuracy * 100 : null;
 
-  // GSAP + ScrollTrigger animations: page scroll -> 3D stage + single-slide pinned horizontal fruit rail
+  // GSAP + ScrollTrigger animations: hero entrance + single-slide pinned horizontal fruit rail + section reveals
   useEffect(() => {
     const container = rootRef.current;
     if (!container) return;
 
     const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (prefersReducedMotion) return;
 
     const ctx = gsap.context(() => {
-      // 1. Bind overall page scroll progress (0 -> 1) directly into Three.js 3D fruit choreography
-      ScrollTrigger.create({
-        trigger: container,
-        start: 'top top',
-        end: 'bottom bottom',
-        onUpdate: (self) => {
-          scrollProgressRef.current = self.progress;
-        },
-      });
-
-      if (prefersReducedMotion) return;
-
-      // 2. Cinematic Hero Staggered Entrance + Subtle Scroll Drift
+      // 1. Cinematic Hero Staggered Entrance + Subtle Scroll Drift
       gsap.fromTo(
         '.gsap-hero-item',
-        { y: 22, opacity: 0 },
+        { y: 20, opacity: 0 },
         {
           y: 0,
           opacity: 1,
-          duration: 0.68,
+          duration: 0.65,
           stagger: 0.08,
           ease: 'power3.out',
           clearProps: 'transform',
@@ -227,7 +203,7 @@ export const OverviewExperience: React.FC<OverviewExperienceProps> = ({
       );
 
       gsap.to('.gsap-hero-stage', {
-        yPercent: -6,
+        yPercent: -4,
         ease: 'none',
         scrollTrigger: {
           trigger: '.gsap-hero-stage',
@@ -237,7 +213,7 @@ export const OverviewExperience: React.FC<OverviewExperienceProps> = ({
         },
       });
 
-      // 3. SINGLE-SLIDE GSAP HORIZONTAL FRUIT SHOWCASE (Desktop pinned scrub)
+      // 2. SINGLE-SLIDE GSAP HORIZONTAL FRUIT SHOWCASE (Desktop pinned scrub)
       const mm = gsap.matchMedia();
       mm.add('(min-width: 768px)', () => {
         const slideSection = fruitSlideSectionRef.current;
@@ -256,9 +232,9 @@ export const OverviewExperience: React.FC<OverviewExperienceProps> = ({
           scrollTrigger: {
             trigger: slideSection,
             start: 'top 76px',
-            end: () => `+=${Math.max(960, getMaxTranslate() * 1.08)}`,
+            end: () => `+=${Math.max(940, getMaxTranslate() * 1.06)}`,
             pin: true,
-            scrub: 0.55,
+            scrub: 0.5,
             anticipatePin: 1,
             invalidateOnRefresh: true,
             onUpdate: (self) => {
@@ -273,15 +249,6 @@ export const OverviewExperience: React.FC<OverviewExperienceProps> = ({
                 activeSlideIdxRef.current = nextIdx;
                 setActiveSlideIdx(nextIdx);
               }
-              if (self.isActive) {
-                onSelectFocusFruitRef.current(PRODUCE_SPECIES[nextIdx].id);
-              }
-            },
-            onLeave: () => {
-              onSelectFocusFruitRef.current(null);
-            },
-            onLeaveBack: () => {
-              onSelectFocusFruitRef.current(null);
             },
           },
         });
@@ -353,7 +320,7 @@ export const OverviewExperience: React.FC<OverviewExperienceProps> = ({
     return () => {
       ctx.revert();
     };
-  }, [scrollProgressRef]);
+  }, []);
 
   // Animated GSAP number counters when real analytics arrive
   useEffect(() => {
@@ -397,10 +364,8 @@ export const OverviewExperience: React.FC<OverviewExperienceProps> = ({
 
   const jumpToFruitSlideIndex = (targetIndex: number) => {
     const clamped = Math.max(0, Math.min(PRODUCE_SPECIES.length - 1, targetIndex));
-    const species = PRODUCE_SPECIES[clamped];
     activeSlideIdxRef.current = clamped;
     setActiveSlideIdx(clamped);
-    onSelectFocusFruit(species.id);
 
     const st = fruitPinTriggerRef.current;
     if (st && window.innerWidth >= 768) {
@@ -428,7 +393,6 @@ export const OverviewExperience: React.FC<OverviewExperienceProps> = ({
     const candidate =
       samples.find((s) => s.fruit_type === fruitId && s.freshness === 'fresh') ||
       samples.find((s) => s.fruit_type === fruitId);
-    onSelectFocusFruit(fruitId);
     if (candidate) {
       setQueuedSample(candidate);
     }
@@ -491,48 +455,70 @@ export const OverviewExperience: React.FC<OverviewExperienceProps> = ({
               <button
                 type="button"
                 onClick={scrollToFruitSlide}
-                className="inline-flex items-center gap-2 px-5 py-3 text-sm font-medium text-[#EAF3ED] bg-[#0E1712]/80 border border-[#263B30] rounded-lg hover:border-[#34D399] hover:text-white transition-colors whitespace-nowrap shrink-0 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#34D399]"
+                className="inline-flex items-center gap-2 px-5 py-3 text-sm font-medium text-[#EAF3ED] bg-[#0E1712] border border-[#263B30] rounded-lg hover:border-[#34D399] hover:text-white transition-colors whitespace-nowrap shrink-0 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#34D399]"
               >
-                <span>Explore 3D Fruit Slide</span>
+                <span>Explore Produce Slide</span>
                 <ArrowRight className="w-4 h-4 text-[#6EE7B7]" />
               </button>
             </div>
           </div>
 
-          {/* Right Hero Window: Keeps upper stage open for 3D floating fruits + compact Unseen Demo strip */}
-          <div className="lg:col-span-5 flex flex-col justify-end lg:min-h-[340px]">
-            <div className="gsap-hero-item bg-[#0D1611]/78 border border-[#22352B] rounded-xl p-4 sm:p-5 space-y-3.5 mt-auto">
-              <div className="flex items-center justify-between gap-3 text-xs">
-                <span className="font-semibold text-[#EEF5F0]">
-                  Quick Unseen Test Specimen Scan
-                </span>
-                <span className="font-mono text-[#6EE7B7]">15% Held-Out Split</span>
+          {/* Right Hero Column: Clean Studio Calibration Frame + Instant Unseen Test Specimens */}
+          <div className="lg:col-span-5">
+            <div className="gsap-hero-item bg-[#0D1611] border border-[#203329] rounded-xl overflow-hidden">
+              <div className="aspect-[16/9] w-full overflow-hidden relative bg-[#080E0B]">
+                {!macroImgFailed ? (
+                  <img
+                    src={HERO_MACRO_IMAGE}
+                    alt="Studio macro photography of fresh apples, oranges, guavas, and strawberries on dark slate"
+                    referrerPolicy="no-referrer"
+                    onError={() => setMacroImgFailed(true)}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center p-6 text-xs text-[#9BB0A3] bg-[radial-gradient(circle_at_50%_50%,#143023_0%,#090F0C_100%)]">
+                    Optical RGB Calibration Surface (224×224 Tensor Input)
+                  </div>
+                )}
+                <div className="absolute inset-0 bg-gradient-to-t from-[#0D1611] via-transparent to-transparent" />
+                <div className="absolute bottom-2.5 left-4 right-4 flex items-center justify-between text-xs text-[#EAF3ED]">
+                  <span>Optical Epidermal Inspection</span>
+                  <span className="font-mono text-[#6EE7B7]">224×224 RGB</span>
+                </div>
               </div>
-              <div className="grid grid-cols-4 gap-2">
-                {samples.slice(0, 4).map((sample) => (
-                  <button
-                    key={sample.id}
-                    type="button"
-                    onClick={() => {
-                      onSelectFocusFruit(sample.fruit_type as SupportedFruitId);
-                      setQueuedSample(sample);
-                      scrollToScanner();
-                    }}
-                    className="group text-left bg-[#0A110D]/85 border border-[#1E3026] rounded-lg p-1.5 hover:border-[#34D399] transition-colors cursor-pointer"
-                  >
-                    <div className="aspect-square rounded overflow-hidden bg-[#070B09] mb-1">
-                      <img
-                        src={`/api/ml/samples/image/${encodeURIComponent(sample.filename)}`}
-                        alt={sample.display_name}
-                        referrerPolicy="no-referrer"
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-150"
-                      />
-                    </div>
-                    <div className="text-[11px] font-medium text-[#E5EFE8] truncate capitalize">
-                      {sample.fruit_type}
-                    </div>
-                  </button>
-                ))}
+
+              <div className="p-4 space-y-3 border-t border-[#1B2B22]">
+                <div className="flex items-center justify-between gap-3 text-xs">
+                  <span className="font-semibold text-[#EEF5F0]">
+                    Quick Unseen Test Specimen Scan
+                  </span>
+                  <span className="font-mono text-[#6EE7B7]">15% Held-Out Split</span>
+                </div>
+                <div className="grid grid-cols-4 gap-2">
+                  {samples.slice(0, 4).map((sample) => (
+                    <button
+                      key={sample.id}
+                      type="button"
+                      onClick={() => {
+                        setQueuedSample(sample);
+                        scrollToScanner();
+                      }}
+                      className="group text-left bg-[#09100C] border border-[#1E3026] rounded-lg p-1.5 hover:border-[#34D399] transition-colors cursor-pointer"
+                    >
+                      <div className="aspect-square rounded overflow-hidden bg-[#070B09] mb-1">
+                        <img
+                          src={`/api/ml/samples/image/${encodeURIComponent(sample.filename)}`}
+                          alt={sample.display_name}
+                          referrerPolicy="no-referrer"
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-150"
+                        />
+                      </div>
+                      <div className="text-[11px] font-medium text-[#E5EFE8] truncate capitalize">
+                        {sample.fruit_type}
+                      </div>
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
@@ -616,25 +602,25 @@ export const OverviewExperience: React.FC<OverviewExperienceProps> = ({
         </div>
       </section>
 
-      {/* SECTION 2: SINGLE-SLIDE GSAP SCROLL 3D FRUIT SHOWCASE ("EK HI SLIDE M") */}
+      {/* SECTION 2: SINGLE-SLIDE GSAP SCROLL PRODUCE SHOWCASE ("EK HI SLIDE M") */}
       <section
         id="produce-matrix"
         ref={fruitSlideSectionRef}
-        className="scroll-mt-20 py-4 flex flex-col justify-center min-h-[78vh]"
+        className="scroll-mt-20 py-4 flex flex-col justify-center min-h-[76vh]"
       >
         <div className="space-y-6">
-          {/* Slide Header + Interactive Single-Row Fruit Selector + Slide Controls */}
+          {/* Slide Header + Slide Controls */}
           <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
             <div className="space-y-1.5 max-w-2xl">
               <p className="text-xs font-medium text-[#6EE7B7]">
                 Single-Slide GSAP Scroll Showcase · 8 Botanical Species · 16 Classes
               </p>
               <h2 className="font-display text-2xl sm:text-3xl font-bold tracking-tight text-[#F6FAF7] text-balance">
-                01. Supported Produce &amp; Live 3D Specimen Glide
+                01. Supported Produce &amp; Per-Species Test Performance
               </h2>
               <p className="text-sm text-[#A9BDB0]">
-                Scroll down to glide horizontally across all 8 produce species in one slide—each
-                card spotlights its matching 3D fruit in the background stage.
+                Scroll down to glide horizontally across all 8 supported produce species in a single
+                slide, or launch a live MobileNetV2 test scan on any specimen.
               </p>
             </div>
 
@@ -648,7 +634,7 @@ export const OverviewExperience: React.FC<OverviewExperienceProps> = ({
                   onClick={() => jumpToFruitSlideIndex(activeSlideIdx - 1)}
                   disabled={activeSlideIdx === 0}
                   aria-label="Previous fruit"
-                  className="p-2 rounded-lg bg-[#0E1712]/85 border border-[#23372C] text-[#D2E0D7] hover:border-[#34D399] hover:text-white disabled:opacity-40 transition-colors cursor-pointer"
+                  className="p-2 rounded-lg bg-[#0E1712] border border-[#23372C] text-[#D2E0D7] hover:border-[#34D399] hover:text-white disabled:opacity-40 transition-colors cursor-pointer"
                 >
                   <ChevronLeft className="w-4 h-4" />
                 </button>
@@ -657,22 +643,11 @@ export const OverviewExperience: React.FC<OverviewExperienceProps> = ({
                   onClick={() => jumpToFruitSlideIndex(activeSlideIdx + 1)}
                   disabled={activeSlideIdx === PRODUCE_SPECIES.length - 1}
                   aria-label="Next fruit"
-                  className="p-2 rounded-lg bg-[#0E1712]/85 border border-[#23372C] text-[#D2E0D7] hover:border-[#34D399] hover:text-white disabled:opacity-40 transition-colors cursor-pointer"
+                  className="p-2 rounded-lg bg-[#0E1712] border border-[#23372C] text-[#D2E0D7] hover:border-[#34D399] hover:text-white disabled:opacity-40 transition-colors cursor-pointer"
                 >
                   <ChevronRight className="w-4 h-4" />
                 </button>
               </div>
-              <button
-                type="button"
-                onClick={() => onSelectFocusFruit(null)}
-                className={`px-3 py-2 text-xs font-medium rounded-lg border transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
-                  focusedFruit === null
-                    ? 'bg-[#059669] border-[#34D399] text-white'
-                    : 'bg-[#0E1712]/85 border-[#23372C] text-[#B4C6BB] hover:text-white hover:border-[#34D399]'
-                }`}
-              >
-                All 8 Orbit
-              </button>
             </div>
           </div>
 
@@ -680,7 +655,7 @@ export const OverviewExperience: React.FC<OverviewExperienceProps> = ({
           <div className="space-y-3">
             <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
               {PRODUCE_SPECIES.map((item, idx) => {
-                const isCurrent = activeSlideIdx === idx || focusedFruit === item.id;
+                const isCurrent = activeSlideIdx === idx;
                 return (
                   <button
                     key={item.id}
@@ -688,8 +663,8 @@ export const OverviewExperience: React.FC<OverviewExperienceProps> = ({
                     onClick={() => jumpToFruitSlideIndex(idx)}
                     className={`px-3 py-1.5 text-xs font-medium rounded-md border transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
                       isCurrent
-                        ? 'bg-[#059669]/90 border-[#34D399] text-white'
-                        : 'bg-[#0D1611]/78 border-[#1F3127] text-[#A8BCB0] hover:text-white hover:border-[#324E3F]'
+                        ? 'bg-[#059669] border-[#34D399] text-white'
+                        : 'bg-[#0D1611] border-[#1F3127] text-[#A8BCB0] hover:text-white hover:border-[#324E3F]'
                     }`}
                   >
                     {item.indexLabel}. {item.name}
@@ -719,7 +694,7 @@ export const OverviewExperience: React.FC<OverviewExperienceProps> = ({
               {PRODUCE_SPECIES.map((item, idx) => {
                 const f1Pair = getSpeciesF1Pair(item.id);
                 const sampleItem = getSpeciesSampleImage(item.id);
-                const isSpotlit = focusedFruit === item.id || activeSlideIdx === idx;
+                const isSpotlit = activeSlideIdx === idx;
 
                 return (
                   <article
@@ -727,9 +702,8 @@ export const OverviewExperience: React.FC<OverviewExperienceProps> = ({
                     onMouseEnter={() => {
                       activeSlideIdxRef.current = idx;
                       setActiveSlideIdx(idx);
-                      onSelectFocusFruit(item.id);
                     }}
-                    className={`snap-start shrink-0 w-[292px] sm:w-[332px] bg-[#0E1813]/78 border rounded-xl p-5 flex flex-col justify-between space-y-4 transition-colors ${
+                    className={`snap-start shrink-0 w-[292px] sm:w-[332px] bg-[#0E1813] border rounded-xl p-5 flex flex-col justify-between space-y-4 transition-colors ${
                       isSpotlit
                         ? 'border-[#34D399]'
                         : 'border-[#21342A] hover:border-[#355243]'
@@ -806,8 +780,6 @@ export const OverviewExperience: React.FC<OverviewExperienceProps> = ({
           embedded={true}
           externalSampleRequest={queuedSample}
           onHandledExternalSample={() => setQueuedSample(null)}
-          onScanningChange={onScanningChange}
-          onPredictedFruit={onSelectFocusFruit}
         />
       </section>
 
@@ -831,29 +803,31 @@ export const OverviewExperience: React.FC<OverviewExperienceProps> = ({
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-          {/* Left Sticky Visual Column on Desktop */}
+          {/* Left Sticky Visual & Tensor Spec Column on Desktop */}
           <div className="lg:col-span-5 lg:sticky lg:top-24 space-y-5">
-            <div className="rounded-xl overflow-hidden border border-[#203329] bg-[#0C1410]">
-              <div className="aspect-[16/10] w-full overflow-hidden relative bg-[#090F0C]">
-                {!macroImgFailed ? (
-                  <img
-                    src={HERO_MACRO_IMAGE}
-                    alt="Studio macro photography of fresh apples, oranges, guavas, and strawberries on dark slate"
-                    referrerPolicy="no-referrer"
-                    onError={() => setMacroImgFailed(true)}
-                    className="gsap-parallax-media w-full h-full object-cover"
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center p-6 text-xs text-[#9BB0A3] bg-[radial-gradient(circle_at_50%_50%,#143023_0%,#090F0C_100%)]">
-                    Optical RGB Macro Calibration Surface (224×224 Tensor Input)
-                  </div>
-                )}
-                <div className="absolute inset-0 bg-gradient-to-t from-[#09100C]/85 via-transparent to-transparent" />
-                <div className="absolute bottom-3 left-4 right-4 flex items-center justify-between text-xs text-[#EAF3ED]">
-                  <span>Surface Chromaticity &amp; Epidermal Texture Inspection</span>
-                  <span className="font-mono text-[#6EE7B7]">RGB 24-bit</span>
-                </div>
+            <div className="rounded-xl border border-[#203329] bg-[#0D1611] p-5 space-y-3">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-semibold text-[#F5FAF7]">Model Tensor Contract</span>
+                <span className="font-mono text-[#6EE7B7]">MobileNetV2 · Alpha 1.0</span>
               </div>
+              <dl className="grid grid-cols-2 gap-3 text-xs pt-1">
+                <div className="bg-[#09100C] border border-[#1B2B22] rounded-lg p-3 space-y-1">
+                  <dt className="text-[#8FA497]">Input Shape</dt>
+                  <dd className="font-mono font-semibold text-[#EAF3ED]">224 × 224 × 3</dd>
+                </div>
+                <div className="bg-[#09100C] border border-[#1B2B22] rounded-lg p-3 space-y-1">
+                  <dt className="text-[#8FA497]">Normalization</dt>
+                  <dd className="font-mono font-semibold text-[#EAF3ED]">[-1.0, +1.0]</dd>
+                </div>
+                <div className="bg-[#09100C] border border-[#1B2B22] rounded-lg p-3 space-y-1">
+                  <dt className="text-[#8FA497]">Alpha Composite</dt>
+                  <dd className="font-mono font-semibold text-[#EAF3ED]">#FFFFFF RGB</dd>
+                </div>
+                <div className="bg-[#09100C] border border-[#1B2B22] rounded-lg p-3 space-y-1">
+                  <dt className="text-[#8FA497]">Output Head</dt>
+                  <dd className="font-mono font-semibold text-[#6EE7B7]">16 Softmax States</dd>
+                </div>
+              </dl>
             </div>
 
             <div className="rounded-xl overflow-hidden border border-[#203329] bg-[#0C1410]">

@@ -1,6 +1,6 @@
 # FreshScan AI — Fruit Freshness Detection
 
-An end-to-end computer vision product for optical produce freshness classification built with **TensorFlow / Keras (`MobileNetV2` transfer learning)**, **FastAPI**, **React 19 + TypeScript**, **Three.js procedural 3D WebGL**, **GSAP + ScrollTrigger**, and **Express** — engineered for reproducible evaluation, GitHub (`FreshScan-AI`), Docker, and Cloud Run deployment.
+An end-to-end computer vision product for optical produce freshness classification built with **TensorFlow / Keras (`MobileNetV2` transfer learning)**, **FastAPI**, **React 19 + TypeScript**, **GSAP + ScrollTrigger**, and **Express** — engineered for reproducible evaluation, GitHub (`FreshScan-AI`), Docker, and Cloud Run deployment.
 
 > **Food Safety Disclaimer**: Visual classification detects external peel discoloration, bruising, and surface mold only. Optical predictions cannot detect internal core rot, bacterial pathogens (*Salmonella*, *E. coli*, *Listeria*), mycotoxins, or chemical residue. Never rely solely on an image classifier to guarantee food safety.
 
@@ -11,11 +11,10 @@ An end-to-end computer vision product for optical produce freshness classificati
 ```text
 ┌──────────────────────────────────────────────────────────────────────────────┐
 │                     Browser Client (React 19 + TypeScript)                   │
-│  ┌────────────────────────────┐  ┌─────────────────────────────────────────┐ │
-│  │ Three.js Full-Viewport 3D  │  │ GSAP + ScrollTrigger Foreground UI      │ │
-│  │ 7 Procedural Fruit Models  │◄─┤ Hero, Live Optical Scanner, 16x16       │ │
-│  │ + Optical Gimbal + Scroll  │  │ Confusion Matrix, Model & Deploy Panels │ │
-│  └────────────────────────────┘  └───────────────────┬─────────────────────┘ │
+│  ┌─────────────────────────────────────────────────────────────────────────┐ │
+│  │ Dark Botanical UI + GSAP ScrollTrigger Single-Slide Produce Showcase    │ │
+│  │ Hero, Live Optical Scanner, 16x16 Confusion Matrix, Model & Deploy Tabs │ │
+│  └───────────────────────────────────────────────────┬─────────────────────┘ │
 └──────────────────────────────────────────────────────┼───────────────────────┘
                                                        │ HTTP / Multipart
                                                        ▼
@@ -120,7 +119,7 @@ FreshScan-AI/
 ├── README.md                        # Architecture, metrics, API, and deployment guide
 ├── Dockerfile                       # Multi-runtime (Node 22 + Python TensorFlow CPU) container
 ├── requirements.txt                 # Python ML, FastAPI, Pillow, scikit-learn, pytest deps
-├── package.json                     # React 19, Three.js, GSAP, Tailwind v4, Express scripts
+├── package.json                     # React 19, GSAP, Tailwind v4, Express scripts
 ├── train_model.py                   # Reproducible 2-stage MobileNetV2 training CLI
 ├── evaluate_model.py                # Held-out test evaluation & Matplotlib PNG chart exporter
 ├── app.py                           # FastAPI inference & metrics server
@@ -140,9 +139,8 @@ FreshScan-AI/
 │   ├── preprocessing.py             # Image validation, RGB compositing, leak-free split logic
 │   ├── data_loader.py               # Hugging Face raw dataset downloader & split builder
 │   ├── predict.py                   # Stateful TensorFlow inference + uncertainty flags
-│   ├── three/                       # Procedural 3D fruit models + scroll-synced WebGL stage
 │   ├── components/                  # Dark UI views (GSAP Overview, Scanner, Analytics, Deploy)
-│   └── App.tsx                      # Root application state & 3D background integration
+│   └── App.tsx                      # Root application state & workspace navigation
 └── tests/
     └── test_ml_pipeline.py          # Pytest unit, API, error-handling & production model suite
 ```
