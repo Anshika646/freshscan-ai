@@ -1,0 +1,162 @@
+[
+  {
+    "id": "fresh_apple",
+    "filename": "test_fresh_apple.jpg",
+    "ground_truth_class": "fresh_apple",
+    "display_name": "Fresh Apple",
+    "fruit_type": "apple",
+    "freshness": "fresh",
+    "split": "test (held-out)",
+    "original_dimensions": "2066x1946"
+  },
+  {
+    "id": "fresh_banana",
+    "filename": "test_fresh_banana.jpg",
+    "ground_truth_class": "fresh_banana",
+    "display_name": "Fresh Banana",
+    "fruit_type": "banana",
+    "freshness": "fresh",
+    "split": "test (held-out)",
+    "original_dimensions": "1369x1080"
+  },
+  {
+    "id": "fresh_grape",
+    "filename": "test_fresh_grape.jpg",
+    "ground_truth_class": "fresh_grape",
+    "display_name": "Fresh Grape",
+    "fruit_type": "grape",
+    "freshness": "fresh",
+    "split": "test (held-out)",
+    "original_dimensions": "772x752"
+  },
+  {
+    "id": "fresh_guava",
+    "filename": "test_fresh_guava.jpg",
+    "ground_truth_class": "fresh_guava",
+    "display_name": "Fresh Guava",
+    "fruit_type": "guava",
+    "freshness": "fresh",
+    "split": "test (held-out)",
+    "original_dimensions": "1200x1600"
+  },
+  {
+    "id": "fresh_jujube",
+    "filename": "test_fresh_jujube.jpg",
+    "ground_truth_class": "fresh_jujube",
+    "display_name": "Fresh Jujube",
+    "fruit_type": "jujube",
+    "freshness": "fresh",
+    "split": "test (held-out)",
+    "original_dimensions": "2498x2709"
+  },
+  {
+    "id": "fresh_orange",
+    "filename": "test_fresh_orange.jpg",
+    "ground_truth_class": "fresh_orange",
+    "display_name": "Fresh Orange",
+    "fruit_type": "orange",
+    "freshness": "fresh",
+    "split": "test (held-out)",
+    "original_dimensions": "2584x2252"
+  },
+  {
+    "id": "fresh_pomegranate",
+    "filename": "test_fresh_pomegranate.jpg",
+    "ground_truth_class": "fresh_pomegranate",
+    "display_name": "Fresh Pomegranate",
+    "fruit_type": "pomegranate",
+    "freshness": "fresh",
+    "split": "test (held-out)",
+    "original_dimensions": "2306x1982"
+  },
+  {
+    "id": "fresh_strawberry",
+    "filename": "test_fresh_strawberry.jpg",
+    "ground_truth_class": "fresh_strawberry",
+    "display_name": "Fresh Strawberry",
+    "fruit_type": "strawberry",
+    "freshness": "fresh",
+    "split": "test (held-out)",
+    "original_dimensions": "2733x2359"
+  },
+  {
+    "id": "rotten_apple",
+    "filename": "test_rotten_apple.jpg",
+    "ground_truth_class": "rotten_apple",
+    "display_name": "Rotten Apple",
+    "fruit_type": "apple",
+    "freshness": "rotten",
+    "split": "test (held-out)",
+    "original_dimensions": "2490x2520"
+  },
+  {
+    "id": "rotten_banana",
+    "filename": "test_rotten_banana.jpg",
+    "ground_truth_class": "rotten_banana",
+    "display_name": "Rotten Banana",
+    "fruit_type": "banana",
+    "freshness": "rotten",
+    "split": "test (held-out)",
+    "original_dimensions": "2674x2714"
+  },
+  {
+    "id": "rotten_grape",
+    "filename": "test_rotten_grape.jpg",
+    "ground_truth_class": "rotten_grape",
+    "display_name": "Rotten Grape",
+    "fruit_type": "grape",
+    "freshness": "rotten",
+    "split": "test (held-out)",
+    "original_dimensions": "758x510"
+  },
+  {
+    "id": "rotten_guava",
+    "filename": "test_rotten_guava.jpg",
+    "ground_truth_class": "rotten_guava",
+    "display_name": "Rotten Guava",
+    "fruit_type": "guava",
+    "freshness": "rotten",
+    "split": "test (held-out)",
+    "original_dimensions": "2823x2417"
+  },
+  {
+    "id": "rotten_jujube",
+    "filename": "test_rotten_jujube.jpg",
+    "ground_truth_class": "rotten_jujube",
+    "display_name": "Rotten Jujube",
+    "fruit_type": "jujube",
+    "freshness": "rotten",
+    "split": "test (held-out)",
+    "original_dimensions": "3464x2336"
+  },
+  {
+    "id": "rotten_orange",
+    "filename": "test_rotten_orange.jpg",
+    "ground_truth_class": "rotten_orange",
+    "display_name": "Rotten Orange",
+    "fruit_type": "orange",
+    "freshness": "rotten",
+    "split": "test (held-out)",
+    "original_dimensions": "2133x2162"
+  },
+  {
+    "id": "rotten_pomegranate",
+    "filename": "test_rotten_pomegranate.jpg",
+    "ground_truth_class": "rotten_pomegranate",
+    "display_name": "Rotten Pomegranate",
+    "fruit_type": "pomegranate",
+    "freshness": "rotten",
+    "split": "test (held-out)",
+    "original_dimensions": "4160x3120"
+  },
+  {
+    "id": "rotten_strawberry",
+    "filename": "test_rotten_strawberry.jpg",
+    "ground_truth_class": "rotten_strawberry",
+    "display_name": "Rotten Strawberry",
+    "fruit_type": "strawberry",
+    "freshness": "rotten",
+    "split": "test (held-out)",
+    "original_dimensions": "2128x2137"
+  }
+]

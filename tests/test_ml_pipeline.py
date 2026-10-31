@@ -238,20 +238,27 @@ def test_api_predict_and_invalid_input_handling(temp_model_bundle: Path):
     )
     client = TestClient(test_app)
 
-    health = client.get("/api/ml/health")
+    health = client.get("/health")
     assert health.status_code == 200
     assert health.json()["model_ready"] is True
+    assert health.json()["model_version"] == "1.2.0-mobilenetv2"
+
+    model_info = client.get("/model-info")
+    assert model_info.status_code == 200
+    assert model_info.json()["model_trained"] is True
+    assert model_info.json()["num_classes"] == 4
 
     img = Image.new("RGBA", (180, 180), color=(120, 200, 80, 255))
     png_bytes = _encode_pil_to_bytes(img, fmt="PNG")
     resp = client.post(
-        "/api/ml/predict",
+        "/predict",
         files={"file": ("fresh_fruit.png", png_bytes, "image/png")},
     )
     assert resp.status_code == 200
     body = resp.json()
     assert "predicted_class" in body
     assert "confidence" in body
+    assert body["model_version"] == "1.2.0-mobilenetv2"
     assert "food_safety_disclaimer" in body
 
     bad_ext = client.post(
@@ -267,6 +274,19 @@ def test_api_predict_and_invalid_input_handling(temp_model_bundle: Path):
     )
     assert corrupt.status_code == 400
 
+    strict_limit_app = create_app(
+        models_dir=temp_model_bundle / "models",
+        data_dir=temp_model_bundle / "data",
+        max_upload_mb=0.001,
+    )
+    strict_client = TestClient(strict_limit_app)
+    oversized = strict_client.post(
+        "/predict",
+        files={"file": ("large.png", b"x" * 4096, "image/png")},
+    )
+    assert oversized.status_code == 413
+    assert "maximum size limit" in oversized.json()["detail"]
+
 
 def test_api_handles_missing_model_gracefully(tmp_path: Path):
     empty_app = create_app(models_dir=tmp_path / "empty_models", data_dir=tmp_path / "empty_data")
@@ -275,6 +295,16 @@ def test_api_handles_missing_model_gracefully(tmp_path: Path):
     health = client.get("/api/ml/health")
     assert health.status_code == 200
     assert health.json()["model_ready"] is False
+
+    info = client.get("/model-info")
+    assert info.status_code == 200
+    assert info.json()["model_trained"] is False
+    assert "Model not trained yet" in info.json()["status_message"]
+
+    metrics = client.get("/metrics")
+    assert metrics.status_code == 200
+    assert metrics.json()["available"] is False
+    assert "Model not trained yet" in metrics.json()["status_message"]
 
     analytics = client.get("/api/ml/analytics")
     assert analytics.status_code == 200
@@ -287,3 +317,57 @@ def test_api_handles_missing_model_gracefully(tmp_path: Path):
     )
     assert resp.status_code == 503
     assert "train_model.py" in resp.json()["detail"]
+
+
+def test_trained_production_model_and_heldout_sample_inference():
+    repo_root = Path(__file__).resolve().parent.parent
+    prod_model = repo_root / "models" / "freshscan_mobilenetv2.keras"
+    if not prod_model.exists():
+        pytest.skip("Production trained model not yet generated on disk.")
+
+    prod_app = create_app(
+        models_dir=repo_root / "models",
+        data_dir=repo_root / "data",
+    )
+    client = TestClient(prod_app)
+
+    health = client.get("/health")
+    assert health.status_code == 200
+    h_json = health.json()
+    assert h_json["model_ready"] is True
+    assert h_json["num_classes"] == 16
+
+    info = client.get("/model-info")
+    assert info.status_code == 200
+    i_json = info.json()
+    assert i_json["model_trained"] is True
+    assert len(i_json["supported_fruits"]) == 8
+
+    metrics = client.get("/metrics")
+    assert metrics.status_code == 200
+    m_json = metrics.json()
+    assert m_json["available"] is True
+    assert m_json["evaluation_report"]["overall_metrics"]["accuracy"] > 0.90
+    assert m_json["baseline_comparison"]["final_mobilenetv2_test_accuracy"] > 0.90
+
+    analytics = client.get("/api/ml/analytics")
+    assert analytics.status_code == 200
+    a_json = analytics.json()
+    assert a_json["available"] is True
+    assert a_json["evaluation_report"]["num_classes"] == 16
+    assert a_json["evaluation_report"]["num_test_samples"] >= 16
+
+    samples = client.get("/api/ml/samples")
+    assert samples.status_code == 200
+    sample_list = samples.json()["samples"]
+    assert len(sample_list) == 16
+
+    first_sample_id = sample_list[0]["id"]
+    pred_resp = client.post(f"/api/ml/predict-sample/{first_sample_id}")
+    assert pred_resp.status_code == 200
+    p_json = pred_resp.json()
+    assert p_json["predicted_class"] in h_json["classes"]
+    assert 0.0 <= p_json["confidence"] <= 1.0
+    assert "sample_ground_truth" in p_json
+
+

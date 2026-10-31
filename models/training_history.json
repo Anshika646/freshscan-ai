@@ -1,0 +1,136 @@
+{
+  "model_name": "FreshScan MobileNetV2 Transfer Classifier",
+  "backbone": "MobileNetV2 (ImageNet weights)",
+  "input_shape": [
+    224,
+    224,
+    3
+  ],
+  "num_classes": 16,
+  "random_seed": 42,
+  "batch_size": 32,
+  "stage1_lr": 0.001,
+  "stage2_lr": 0.0001,
+  "fine_tune_top_layers": 30,
+  "stage1_epochs_completed": 8,
+  "total_epochs_completed": 14,
+  "training_duration_seconds": 363.86,
+  "model_file": "models/freshscan_mobilenetv2.keras",
+  "model_size_mb": 8.92,
+  "best_val_accuracy": 0.982143,
+  "best_val_loss": 0.130097,
+  "epochs": [
+    {
+      "epoch": 1,
+      "stage": "head_warmup",
+      "loss": 1.953663,
+      "val_loss": 0.735058,
+      "accuracy": 0.429435,
+      "val_accuracy": 0.8125
+    },
+    {
+      "epoch": 2,
+      "stage": "head_warmup",
+      "loss": 0.564551,
+      "val_loss": 0.287115,
+      "accuracy": 0.84879,
+      "val_accuracy": 0.9375
+    },
+    {
+      "epoch": 3,
+      "stage": "head_warmup",
+      "loss": 0.276555,
+      "val_loss": 0.213914,
+      "accuracy": 0.921371,
+      "val_accuracy": 0.955357
+    },
+    {
+      "epoch": 4,
+      "stage": "head_warmup",
+      "loss": 0.163448,
+      "val_loss": 0.189295,
+      "accuracy": 0.961694,
+      "val_accuracy": 0.946429
+    },
+    {
+      "epoch": 5,
+      "stage": "head_warmup",
+      "loss": 0.110418,
+      "val_loss": 0.146606,
+      "accuracy": 0.975806,
+      "val_accuracy": 0.964286
+    },
+    {
+      "epoch": 6,
+      "stage": "head_warmup",
+      "loss": 0.075488,
+      "val_loss": 0.144138,
+      "accuracy": 0.985887,
+      "val_accuracy": 0.973214
+    },
+    {
+      "epoch": 7,
+      "stage": "head_warmup",
+      "loss": 0.07353,
+      "val_loss": 0.13191,
+      "accuracy": 0.983871,
+      "val_accuracy": 0.982143
+    },
+    {
+      "epoch": 8,
+      "stage": "head_warmup",
+      "loss": 0.04945,
+      "val_loss": 0.130097,
+      "accuracy": 0.991935,
+      "val_accuracy": 0.973214
+    },
+    {
+      "epoch": 9,
+      "stage": "fine_tuning",
+      "loss": 0.154681,
+      "val_loss": 0.235395,
+      "accuracy": 0.943548,
+      "val_accuracy": 0.892857
+    },
+    {
+      "epoch": 10,
+      "stage": "fine_tuning",
+      "loss": 0.093812,
+      "val_loss": 0.160225,
+      "accuracy": 0.97379,
+      "val_accuracy": 0.955357
+    },
+    {
+      "epoch": 11,
+      "stage": "fine_tuning",
+      "loss": 0.036475,
+      "val_loss": 0.144658,
+      "accuracy": 0.991935,
+      "val_accuracy": 0.964286
+    },
+    {
+      "epoch": 12,
+      "stage": "fine_tuning",
+      "loss": 0.028396,
+      "val_loss": 0.223661,
+      "accuracy": 0.991935,
+      "val_accuracy": 0.9375
+    },
+    {
+      "epoch": 13,
+      "stage": "fine_tuning",
+      "loss": 0.036725,
+      "val_loss": 0.18167,
+      "accuracy": 0.985887,
+      "val_accuracy": 0.946429
+    },
+    {
+      "epoch": 14,
+      "stage": "fine_tuning",
+      "loss": 0.017527,
+      "val_loss": 0.158681,
+      "accuracy": 0.993952,
+      "val_accuracy": 0.955357
+    }
+  ]
+}

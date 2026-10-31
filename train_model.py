@@ -139,24 +139,30 @@ def train_pipeline(
 
     config = PreprocessingConfig(random_seed=seed)
 
-    has_raw = raw_path.exists() and any(
-        d.is_dir() and any(d.iterdir()) for d in raw_path.iterdir()
-    )
-    if not has_raw:
-        if not download_if_missing:
-            raise FileNotFoundError(
-                f"Raw dataset directory '{raw_path}' is empty and --no-download was specified."
-            )
-        print("[train_model] Downloading raw Project-AgML fruit freshness dataset...")
-        dl_stats = download_agml_raw_dataset(
-            raw_dir=raw_path,
-            max_per_class=max_per_class,
-        )
-        print(f"[train_model] Download summary: {json.dumps(dl_stats, indent=2)}")
-
     train_npz = proc_path / "train_split.npz"
     val_npz = proc_path / "val_split.npz"
-    if not (train_npz.exists() and val_npz.exists() and (mod_path / "class_indices.json").exists()):
+    splits_ready = (
+        train_npz.exists()
+        and val_npz.exists()
+        and (mod_path / "class_indices.json").exists()
+    )
+
+    if not splits_ready:
+        has_raw = raw_path.exists() and any(
+            d.is_dir() and any(d.iterdir()) for d in raw_path.iterdir()
+        )
+        if not has_raw:
+            if not download_if_missing:
+                raise FileNotFoundError(
+                    f"Raw dataset directory '{raw_path}' is empty and --no-download was specified."
+                )
+            print("[train_model] Downloading raw Project-AgML fruit freshness dataset...")
+            dl_stats = download_agml_raw_dataset(
+                raw_dir=raw_path,
+                max_per_class=max_per_class or 80,
+            )
+            print(f"[train_model] Download summary: {json.dumps(dl_stats, indent=2)}")
+
         print("[train_model] Inspecting raw dataset and preparing leakage-safe splits...")
         prepare_dataset_splits_and_cache(
             raw_dir=raw_path,
@@ -272,10 +278,20 @@ def train_pipeline(
         combined_acc.extend(float(x) for x in hist_s2.history.get("accuracy", []))
         combined_val_acc.extend(float(x) for x in hist_s2.history.get("val_accuracy", []))
 
+    import zipfile
+
     model_out_path = mod_path / "freshscan_mobilenetv2.keras"
+    tmp_raw_keras = mod_path / "_tmp_uncompressed.keras"
     inference_clone = tf.keras.models.clone_model(model)
     inference_clone.set_weights(model.get_weights())
-    inference_clone.save(model_out_path)
+    inference_clone.save(tmp_raw_keras, include_optimizer=False)
+    with (
+        zipfile.ZipFile(tmp_raw_keras, "r") as zin,
+        zipfile.ZipFile(model_out_path, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=6) as zout,
+    ):
+        for item in zin.infolist():
+            zout.writestr(item.filename, zin.read(item.filename))
+    tmp_raw_keras.unlink(missing_ok=True)
 
     total_duration_sec = round(time.time() - t_start, 2)
     epochs_records = [

@@ -1,0 +1,228 @@
+{
+  "dataset_metadata": {
+    "name": "Fresh and Rotten Fruits Dataset (Project AgML Raw Un-Augmented Benchmark)",
+    "hf_repo_id": "Project-AgML/fresh_rotten_fruit_classification",
+    "hf_config": "raw",
+    "hf_url": "https://huggingface.co/datasets/Project-AgML/fresh_rotten_fruit_classification",
+    "original_source": "Mendeley Data V1 (doi:10.17632/bdd69gyhv8.1) & Data in Brief 44:108552 (2022)",
+    "authors": "Nusrat Sultana, Musfika Jahan, Mohammad Shorif Uddin",
+    "license": "CC BY 4.0 (Creative Commons Attribution 4.0 International)",
+    "supported_fruits": [
+      "apple",
+      "banana",
+      "grape",
+      "guava",
+      "jujube",
+      "orange",
+      "pomegranate",
+      "strawberry"
+    ],
+    "freshness_states": [
+      "fresh",
+      "rotten"
+    ]
+  },
+  "raw_directory": "data/raw",
+  "discovered_classes": [
+    "fresh_apple",
+    "fresh_banana",
+    "fresh_grape",
+    "fresh_guava",
+    "fresh_jujube",
+    "fresh_orange",
+    "fresh_pomegranate",
+    "fresh_strawberry",
+    "rotten_apple",
+    "rotten_banana",
+    "rotten_grape",
+    "rotten_guava",
+    "rotten_jujube",
+    "rotten_orange",
+    "rotten_pomegranate",
+    "rotten_strawberry"
+  ],
+  "num_classes": 16,
+  "empty_class_directories": [],
+  "total_files_scanned": 720,
+  "valid_readable_images": 720,
+  "corrupted_or_unreadable_count": 0,
+  "unsupported_file_count": 0,
+  "corrupted_samples": [],
+  "unsupported_samples": [],
+  "total_size_mb": 245.1,
+  "image_dimensions": {
+    "width_min": 420,
+    "width_max": 4160,
+    "width_mean": 2362.2,
+    "width_median": 2495.0,
+    "height_min": 403,
+    "height_max": 4160,
+    "height_mean": 2158.1,
+    "height_median": 2295.5
+  },
+  "color_modes": {
+    "RGB": 720
+  },
+  "file_formats": {
+    "JPEG": 720
+  },
+  "duplicates": {
+    "exact_sha256_duplicate_groups": 0,
+    "exact_sha256_duplicate_images": 0,
+    "perceptual_dhash_duplicate_groups": 2,
+    "perceptual_dhash_duplicate_images": 2
+  },
+  "class_distribution": {
+    "fresh_apple": 45,
+    "fresh_banana": 45,
+    "fresh_grape": 45,
+    "fresh_guava": 45,
+    "fresh_jujube": 45,
+    "fresh_orange": 45,
+    "fresh_pomegranate": 45,
+    "fresh_strawberry": 45,
+    "rotten_apple": 45,
+    "rotten_banana": 45,
+    "rotten_grape": 45,
+    "rotten_guava": 45,
+    "rotten_jujube": 45,
+    "rotten_orange": 45,
+    "rotten_pomegranate": 45,
+    "rotten_strawberry": 45
+  },
+  "fruit_distribution": {
+    "apple": 90,
+    "banana": 90,
+    "grape": 90,
+    "guava": 90,
+    "jujube": 90,
+    "orange": 90,
+    "pomegranate": 90,
+    "strawberry": 90
+  },
+  "freshness_distribution": {
+    "fresh": 360,
+    "rotten": 360
+  },
+  "imbalance_ratio_max_to_min": 1.0,
+  "splits": {
+    "seed": 42,
+    "ratios": {
+      "train": 0.7,
+      "val": 0.15,
+      "test": 0.15
+    },
+    "counts": {
+      "train": 496,
+      "val": 112,
+      "test": 112
+    },
+    "per_class": {
+      "train": {
+        "fresh_apple": 31,
+        "fresh_banana": 31,
+        "fresh_grape": 31,
+        "fresh_guava": 31,
+        "fresh_jujube": 31,
+        "fresh_orange": 31,
+        "fresh_pomegranate": 31,
+        "fresh_strawberry": 31,
+        "rotten_apple": 31,
+        "rotten_banana": 31,
+        "rotten_grape": 31,
+        "rotten_guava": 31,
+        "rotten_jujube": 31,
+        "rotten_orange": 31,
+        "rotten_pomegranate": 31,
+        "rotten_strawberry": 31
+      },
+      "val": {
+        "fresh_apple": 7,
+        "fresh_banana": 7,
+        "fresh_grape": 7,
+        "fresh_guava": 7,
+        "fresh_jujube": 7,
+        "fresh_orange": 7,
+        "fresh_pomegranate": 7,
+        "fresh_strawberry": 7,
+        "rotten_apple": 7,
+        "rotten_banana": 7,
+        "rotten_grape": 7,
+        "rotten_guava": 7,
+        "rotten_jujube": 7,
+        "rotten_orange": 7,
+        "rotten_pomegranate": 7,
+        "rotten_strawberry": 7
+      },
+      "test": {
+        "fresh_apple": 7,
+        "fresh_banana": 7,
+        "fresh_grape": 7,
+        "fresh_guava": 7,
+        "fresh_jujube": 7,
+        "fresh_orange": 7,
+        "fresh_pomegranate": 7,
+        "fresh_strawberry": 7,
+        "rotten_apple": 7,
+        "rotten_banana": 7,
+        "rotten_grape": 7,
+        "rotten_guava": 7,
+        "rotten_jujube": 7,
+        "rotten_orange": 7,
+        "rotten_pomegranate": 7,
+        "rotten_strawberry": 7
+      }
+    },
+    "deduplication_and_leakage": {
+      "input_valid_images": 720,
+      "exact_duplicates_removed": 0,
+      "conflicting_label_duplicates_quarantined": 0,
+      "near_duplicate_clusters": 2,
+      "near_duplicate_extra_images_grouped": 2,
+      "cross_class_perceptual_clusters": 1,
+      "final_clean_images": 720,
+      "leakage_verified_zero_overlap": true
+    },
+    "class_weights": {
+      "fresh_apple": 1.0,
+      "fresh_banana": 1.0,
+      "fresh_grape": 1.0,
+      "fresh_guava": 1.0,
+      "fresh_jujube": 1.0,
+      "fresh_orange": 1.0,
+      "fresh_pomegranate": 1.0,
+      "fresh_strawberry": 1.0,
+      "rotten_apple": 1.0,
+      "rotten_banana": 1.0,
+      "rotten_grape": 1.0,
+      "rotten_guava": 1.0,
+      "rotten_jujube": 1.0,
+      "rotten_orange": 1.0,
+      "rotten_pomegranate": 1.0,
+      "rotten_strawberry": 1.0
+    },
+    "class_weights_by_index": {
+      "0": 1.0,
+      "1": 1.0,
+      "2": 1.0,
+      "3": 1.0,
+      "4": 1.0,
+      "5": 1.0,
+      "6": 1.0,
+      "7": 1.0,
+      "8": 1.0,
+      "9": 1.0,
+      "10": 1.0,
+      "11": 1.0,
+      "12": 1.0,
+      "13": 1.0,
+      "14": 1.0,
+      "15": 1.0
+    },
+    "artifacts": {
+      "train_npz": "data/processed/train_split.npz",
+      "val_npz": "data/processed/val_split.npz",
+      "test_npz": "data/processed/test_split.npz"
+    }
+  }
+}

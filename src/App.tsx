@@ -5,28 +5,33 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Navbar, type ActiveTab } from './components/Navbar';
+import { OverviewExperience } from './components/OverviewExperience';
 import { ScannerWorkspace } from './components/ScannerWorkspace';
 import { AnalyticsDashboard } from './components/AnalyticsDashboard';
 import { DatasetExplorer } from './components/DatasetExplorer';
 import { GitHubDeployPanel } from './components/GitHubDeployPanel';
+import { FruitBackground3D } from './three/FruitBackground3D';
 import type {
   AnalyticsBundle,
-  GitHubStatusResponse,
   HealthResponse,
   HistoryEntry,
   SampleTestItem,
+  SupportedFruitId,
 } from './types';
 
 const SESSION_HISTORY_KEY = 'freshscan_session_history_v1';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<ActiveTab>('scanner');
+  const [activeTab, setActiveTab] = useState<ActiveTab>('overview');
   const [health, setHealth] = useState<HealthResponse | null>(null);
   const [healthError, setHealthError] = useState<string | null>(null);
   const [samples, setSamples] = useState<SampleTestItem[]>([]);
   const [analytics, setAnalytics] = useState<AnalyticsBundle | null>(null);
   const [analyticsLoading, setAnalyticsLoading] = useState<boolean>(false);
-  const [githubStatus, setGithubStatus] = useState<GitHubStatusResponse | null>(null);
+
+  const [focusedFruit, setFocusedFruit] = useState<SupportedFruitId | null>(null);
+  const [isScanning, setIsScanning] = useState<boolean>(false);
+  const scrollProgressRef = useRef<number>(0);
 
   const [history, setHistory] = useState<HistoryEntry[]>(() => {
     try {
@@ -39,7 +44,21 @@ export default function App() {
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  const fetchHealthAndSamples = useCallback(async () => {
+  const fetchSamples = useCallback(async () => {
+    try {
+      const sResp = await fetch('/api/ml/samples');
+      if (sResp.ok) {
+        const sData = await sResp.json();
+        if (Array.isArray(sData.samples)) {
+          setSamples(sData.samples as SampleTestItem[]);
+        }
+      }
+    } catch {
+      // Non-fatal
+    }
+  }, []);
+
+  const fetchHealth = useCallback(async () => {
     try {
       const hResp = await fetch('/api/ml/health');
       const hData = await hResp.json();
@@ -48,14 +67,6 @@ export default function App() {
       } else {
         setHealth(hData as HealthResponse);
         setHealthError(null);
-      }
-
-      const sResp = await fetch('/api/ml/samples');
-      if (sResp.ok) {
-        const sData = await sResp.json();
-        if (Array.isArray(sData.samples)) {
-          setSamples(sData.samples as SampleTestItem[]);
-        }
       }
     } catch (err) {
       setHealthError(err instanceof Error ? err.message : 'Unable to reach inference backend');
@@ -77,33 +88,27 @@ export default function App() {
     }
   }, []);
 
-  const fetchGitHubStatus = useCallback(async () => {
-    try {
-      const resp = await fetch('/api/github/status');
-      if (resp.ok) {
-        const data = (await resp.json()) as GitHubStatusResponse;
-        setGithubStatus(data);
-      }
-    } catch {
-      // Non-fatal
-    }
-  }, []);
-
   useEffect(() => {
-    void fetchHealthAndSamples();
+    void fetchSamples();
     void fetchAnalytics();
-    void fetchGitHubStatus();
-  }, [fetchHealthAndSamples, fetchAnalytics, fetchGitHubStatus]);
+    void fetchHealth();
+  }, [fetchSamples, fetchAnalytics, fetchHealth]);
 
-  // Poll health until the trained model is ready on disk
+  // Poll until model_ready and analytics.available are both true
   useEffect(() => {
-    if (health?.model_ready) return;
+    if (health?.model_ready && analytics?.available && samples.length > 0) return;
     const timer = window.setInterval(() => {
-      void fetchHealthAndSamples();
+      void fetchSamples();
       void fetchAnalytics();
-    }, 6000);
+      void fetchHealth();
+    }, 5000);
     return () => window.clearInterval(timer);
-  }, [health?.model_ready, fetchHealthAndSamples, fetchAnalytics]);
+  }, [health?.model_ready, analytics?.available, samples.length, fetchSamples, fetchAnalytics, fetchHealth]);
+
+  const handleSelectTab = useCallback((tab: ActiveTab) => {
+    setActiveTab(tab);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, []);
 
   const handleAddHistory = useCallback((entry: HistoryEntry) => {
     setHistory((prev) => {
@@ -126,62 +131,129 @@ export default function App() {
     }
   }, []);
 
-  const handleTriggerUpload = () => {
+  const handleTriggerScanCta = () => {
+    if (activeTab === 'overview') {
+      const el = document.getElementById('live-scanner');
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        return;
+      }
+    }
     if (activeTab !== 'scanner') {
       setActiveTab('scanner');
-      setTimeout(() => fileInputRef.current?.click(), 50);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      setTimeout(() => fileInputRef.current?.click(), 120);
     } else {
       fileInputRef.current?.click();
     }
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#F7F8F5] text-[#14241B]">
-      <Navbar
-        activeTab={activeTab}
-        onSelectTab={setActiveTab}
-        onTriggerUpload={handleTriggerUpload}
+    <div className="min-h-screen flex flex-col bg-[#070A08] text-[#EEF3EF] relative">
+      {/* Interactive Three.js 3D Botanical Fruits Background Scene */}
+      <FruitBackground3D
+        scrollProgressRef={scrollProgressRef}
+        focusedFruit={focusedFruit}
+        onSelectFocusFruit={setFocusedFruit}
+        isScanning={isScanning}
+        isOverviewActive={activeTab === 'overview'}
       />
 
-      <main className="flex-1 w-full max-w-[1320px] mx-auto px-6 py-8">
-        {activeTab === 'scanner' && (
-          <ScannerWorkspace
-            health={health}
-            healthError={healthError}
-            samples={samples}
-            history={history}
-            onAddHistory={handleAddHistory}
-            onClearHistory={handleClearHistory}
-            fileInputRef={fileInputRef}
-          />
-        )}
+      {/* Foreground Content Layer above WebGL Canvas */}
+      <div className="relative z-10 min-h-screen flex flex-col">
+        <Navbar
+          activeTab={activeTab}
+          onSelectTab={handleSelectTab}
+          onTriggerScanCta={handleTriggerScanCta}
+        />
 
-        {activeTab === 'analytics' && (
-          <AnalyticsDashboard
-            analytics={analytics}
-            loading={analyticsLoading}
-            onRefresh={() => void fetchAnalytics()}
-          />
-        )}
+        <main className="flex-1 w-full max-w-[1320px] mx-auto px-4 sm:px-6 py-8">
+          {activeTab === 'overview' && (
+            <OverviewExperience
+              analytics={analytics}
+              health={health}
+              healthError={healthError}
+              samples={samples}
+              history={history}
+              onAddHistory={handleAddHistory}
+              onClearHistory={handleClearHistory}
+              fileInputRef={fileInputRef}
+              scrollProgressRef={scrollProgressRef}
+              focusedFruit={focusedFruit}
+              onSelectFocusFruit={setFocusedFruit}
+              onScanningChange={setIsScanning}
+              onNavigateTab={handleSelectTab}
+            />
+          )}
 
-        {activeTab === 'dataset' && (
-          <DatasetExplorer summary={analytics?.dataset_summary ?? null} />
-        )}
+          {activeTab === 'scanner' && (
+            <ScannerWorkspace
+              health={health}
+              healthError={healthError}
+              samples={samples}
+              history={history}
+              onAddHistory={handleAddHistory}
+              onClearHistory={handleClearHistory}
+              fileInputRef={fileInputRef}
+              onScanningChange={setIsScanning}
+              onPredictedFruit={setFocusedFruit}
+            />
+          )}
 
-        {activeTab === 'deploy' && <GitHubDeployPanel />}
-      </main>
+          {activeTab === 'analytics' && (
+            <AnalyticsDashboard
+              analytics={analytics}
+              loading={analyticsLoading}
+              onRefresh={() => void fetchAnalytics()}
+            />
+          )}
 
-      <footer className="border-t border-[#DCE2D7] bg-[#F7F8F5] py-5 px-6 mt-12">
-        <div className="max-w-[1320px] mx-auto flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-[#526358]">
-          <span>
-            FreshScan AI — Optical Fruit Freshness Classification (MobileNetV2 · TensorFlow/Keras)
-          </span>
-          <span>
-            Dataset: Project AgML / Sultana et al. (2022) · CC BY 4.0 · Visual predictions do not
-            guarantee food safety
-          </span>
-        </div>
-      </footer>
+          {activeTab === 'dataset' && (
+            <DatasetExplorer
+              summary={analytics?.dataset_summary ?? null}
+              trainingHistory={analytics?.training_history ?? null}
+            />
+          )}
+
+          {activeTab === 'deploy' && <GitHubDeployPanel />}
+        </main>
+
+        <footer className="border-t border-[#18221D] bg-[#070A08]/95 py-6 px-4 sm:px-6 mt-12">
+          <div className="max-w-[1320px] mx-auto flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-[#8FA396]">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+              <span className="font-semibold text-[#E2ECE5]">FreshScan AI</span>
+              <span aria-hidden="true">·</span>
+              <span>MobileNetV2 Optical Produce Freshness Detection</span>
+              <span aria-hidden="true">·</span>
+              <span>Dataset: Sultana et al. (2022) CC BY 4.0</span>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-5">
+              <button
+                type="button"
+                onClick={() => handleSelectTab('dataset')}
+                className="hover:text-[#F3F7F4] transition-colors cursor-pointer"
+              >
+                Documentation &amp; API
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSelectTab('analytics')}
+                className="hover:text-[#F3F7F4] transition-colors cursor-pointer"
+              >
+                Evaluation Metrics
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSelectTab('deploy')}
+                className="hover:text-[#F3F7F4] transition-colors cursor-pointer"
+              >
+                GitHub (FreshScan-AI)
+              </button>
+            </div>
+          </div>
+        </footer>
+      </div>
     </div>
   );
 }

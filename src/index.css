@@ -1,8 +1,18 @@
 @import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
 
 @layer base {
   :root {
+    color-scheme: dark;
     font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    letter-spacing: 0.008em;
+  }
+
+  h1,
+  h2,
+  h3,
+  .font-display {
+    font-family: 'Manrope', 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
   }
 
   code,
@@ -15,4 +25,35 @@
 
 .tabular-nums {
   font-variant-numeric: tabular-nums;
+}
+
+@keyframes freshscanLaserSweep {
+  0% {
+    transform: translateY(0%);
+    opacity: 0.25;
+  }
+  15% {
+    opacity: 0.95;
+  }
+  85% {
+    opacity: 0.95;
+  }
+  100% {
+    transform: translateY(360%);
+    opacity: 0.25;
+  }
+}
+
+.freshscan-laser-line {
+  animation: freshscanLaserSweep 1.8s cubic-bezier(0.4, 0, 0.2, 1) infinite alternate;
+  will-change: transform, opacity;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto !important;
+  }
+  .freshscan-laser-line {
+    animation: none !important;
+  }
 }

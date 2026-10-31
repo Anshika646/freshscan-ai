@@ -1,6 +1,6 @@
 """
 Dataset acquisition, pre-processing inspection, validation, duplicate analysis,
-and leakage-safe split preparation for FreshScan AI.
+and low-memory leakage-safe split preparation for FreshScan AI.
 
 Dataset Provenance:
 - Title: Fresh and Rotten Fruits Dataset for Machine-Based Evaluation of Fruit Quality
@@ -9,17 +9,13 @@ Dataset Provenance:
 - Publication: Data in Brief, Vol. 44, 108552 (https://doi.org/10.1016/j.dib.2022.108552)
 - Primary Archive DOI: 10.17632/bdd69gyhv8.1 (Mendeley Data, V1)
 - License: Creative Commons Attribution 4.0 International (CC BY 4.0)
-- Supported Fruits (8): Apple, Banana, Grape, Guava, Jujube, Orange, Pomegranate, Strawberry
-- Class Labels (16):
-    fresh_apple, fresh_banana, fresh_grape, fresh_guava,
-    fresh_jujube, fresh_orange, fresh_pomegranate, fresh_strawberry,
-    rotten_apple, rotten_banana, rotten_grape, rotten_guava,
-    rotten_jujube, rotten_orange, rotten_pomegranate, rotten_strawberry
 """
 
 from __future__ import annotations
 
+import argparse
 import concurrent.futures
+import gc
 import io
 import json
 import shutil
@@ -48,7 +44,7 @@ from src.preprocessing import (
 )
 
 DATASET_METADATA: Dict[str, Any] = {
-    "name": "Fresh and Rotten Fruits Dataset (Project AgML Raw Benchmark)",
+    "name": "Fresh and Rotten Fruits Dataset (Project AgML Raw Un-Augmented Benchmark)",
     "hf_repo_id": "Project-AgML/fresh_rotten_fruit_classification",
     "hf_config": "raw",
     "hf_url": "https://huggingface.co/datasets/Project-AgML/fresh_rotten_fruit_classification",
@@ -67,26 +63,6 @@ DATASET_METADATA: Dict[str, Any] = {
     ],
     "freshness_states": ["fresh", "rotten"],
 }
-
-# Exact 200-row block offsets in Project-AgML/fresh_rotten_fruit_classification (raw split, 3,200 total rows)
-CLASS_BLOCK_OFFSETS: List[Tuple[str, int, int]] = [
-    ("fresh_apple", 0, 200),
-    ("fresh_banana", 200, 200),
-    ("fresh_grape", 400, 200),
-    ("fresh_guava", 600, 200),
-    ("fresh_jujube", 800, 200),
-    ("fresh_orange", 1000, 200),
-    ("fresh_pomegranate", 1200, 200),
-    ("fresh_strawberry", 1400, 200),
-    ("rotten_apple", 1600, 200),
-    ("rotten_banana", 1800, 200),
-    ("rotten_grape", 2000, 200),
-    ("rotten_guava", 2200, 200),
-    ("rotten_jujube", 2400, 200),
-    ("rotten_orange", 2600, 200),
-    ("rotten_pomegranate", 2800, 200),
-    ("rotten_strawberry", 3000, 200),
-]
 
 
 def format_class_label(freshness: str, fruit_type: str) -> str:
@@ -117,63 +93,40 @@ def _fetch_json_with_retry(url: str, timeout: int = 20, retries: int = 3) -> Dic
     for attempt in range(retries):
         try:
             resp = requests.get(url, timeout=timeout)
-            if resp.status_code == 429:
-                time.sleep(1.5 * (attempt + 1))
-                continue
             resp.raise_for_status()
             return resp.json()
         except Exception as exc:
             last_err = exc
             time.sleep(0.8 * (attempt + 1))
-    raise RuntimeError(f"Failed to query dataset index '{url}': {last_err}")
+    raise RuntimeError(f"Failed fetching {url}: {last_err}")
 
 
 def _download_single_asset(task: Tuple[str, Path, int]) -> bool:
-    img_url, dest_path, timeout = task
-    if dest_path.exists() and dest_path.stat().st_size > 0:
-        return True
+    src_url, out_file, timeout = task
+    if out_file.exists() and out_file.stat().st_size > 0:
+        return False
     for attempt in range(3):
         try:
-            resp = requests.get(img_url, timeout=timeout)
-            if resp.status_code == 429:
-                time.sleep(1.2 * (attempt + 1))
-                continue
+            resp = requests.get(src_url, timeout=timeout)
             resp.raise_for_status()
             data = resp.content
             if not data:
                 return False
-            # Cap oversized 12-megapixel DSLR files on disk to max 1024px lossless/high-quality JPEG
-            # ONLY if > 1.5 MB so disk & RAM footprint stay lean while keeping genuine photographic content.
-            if len(data) > 1_500_000:
-                with Image.open(io.BytesIO(data)) as im:
-                    im.load()
-                    rgb = convert_to_rgb(im)
-                    rgb.thumbnail((1024, 1024), resample=Image.Resampling.LANCZOS)
-                    out_buf = io.BytesIO()
-                    rgb.save(out_buf, format="JPEG", quality=93)
-                    data = out_buf.getvalue()
-            dest_path.write_bytes(data)
+            out_file.parent.mkdir(parents=True, exist_ok=True)
+            out_file.write_bytes(data)
             return True
         except Exception:
-            time.sleep(0.6 * (attempt + 1))
+            time.sleep(0.5 * (attempt + 1))
     return False
 
 
 def download_agml_raw_dataset(
     raw_dir: Union[str, Path] = "data/raw",
-    max_per_class: Optional[int] = 75,
+    max_per_class: int = 35,
     selected_fruits: Optional[Sequence[str]] = None,
+    max_workers: int = 4,
     timeout: int = 25,
-    max_workers: int = 8,
 ) -> Dict[str, Any]:
-    """
-    Download genuine raw (un-augmented) fruit freshness images from
-    `Project-AgML/fresh_rotten_fruit_classification` on Hugging Face Hub via
-    the Hugging Face Datasets Server row index & asset CDN.
-
-    Avoids loading monolithic ~1 GB Parquet row-groups into memory so container
-    RAM stays < 100 MB throughout acquisition.
-    """
     raw_path = Path(raw_dir)
     raw_path.mkdir(parents=True, exist_ok=True)
 
@@ -182,83 +135,60 @@ def download_agml_raw_dataset(
         if selected_fruits
         else set(DATASET_METADATA["supported_fruits"])
     )
-    label_map_hf = {
-        0: "fresh",
-        1: "rotten",
-        "0": "fresh",
-        "1": "rotten",
-        "fresh": "fresh",
-        "rotten": "rotten",
-    }
+    label_map_hf = {0: "fresh", 1: "rotten", "0": "fresh", "1": "rotten"}
+    per_class_limit = max(10, min(int(max_per_class), 200))
 
-    target_per_class = 200 if max_per_class is None else min(200, max(10, int(max_per_class)))
-    counts_per_class: Counter = Counter()
     download_tasks: List[Tuple[str, Path, int]] = []
+    repo_id = DATASET_METADATA["hf_repo_id"]
 
-    for expected_cls, start_offset, block_len in CLASS_BLOCK_OFFSETS:
-        parsed_block = parse_class_label(expected_cls)
-        if parsed_block["fruit_type"] not in allowed_fruits:
-            continue
+    for block_idx in range(16):
+        block_start = block_idx * 200
+        remaining = per_class_limit
+        cursor = block_start
 
-        cls_dir = raw_path / expected_cls
-        cls_dir.mkdir(parents=True, exist_ok=True)
-        existing_files = [
-            p for p in cls_dir.iterdir() if p.is_file() and p.suffix.lower() in ALLOWED_EXTENSIONS
-        ]
-        if len(existing_files) >= target_per_class:
-            counts_per_class[expected_cls] = len(existing_files)
-            continue
-
-        needed = min(block_len, target_per_class)
-        fetched_rows = 0
-        while fetched_rows < needed:
-            page_len = min(100, needed - fetched_rows)
-            row_offset = start_offset + fetched_rows
-            api_url = (
+        while remaining > 0 and cursor < block_start + 200:
+            chunk_len = min(remaining, 100, (block_start + 200) - cursor)
+            rows_url = (
                 f"https://datasets-server.huggingface.co/rows"
-                f"?dataset={DATASET_METADATA['hf_repo_id']}"
-                f"&config=raw&split=train&offset={row_offset}&length={page_len}"
+                f"?dataset={repo_id}&config=raw&split=train&offset={cursor}&length={chunk_len}"
             )
-            payload = _fetch_json_with_retry(api_url, timeout=timeout)
+            payload = _fetch_json_with_retry(rows_url, timeout=timeout)
             rows = payload.get("rows", [])
             if not rows:
                 break
 
-            for item in rows:
-                row_idx = int(item.get("row_idx", row_offset))
-                row_data = item.get("row", {})
-                fruit = str(row_data.get("fruit_type", "")).strip().lower()
+            for entry in rows:
+                row_idx = int(entry.get("row_idx", cursor))
+                row = entry.get("row", {})
+                fruit = str(row.get("fruit_type", "")).strip().lower()
                 if fruit not in allowed_fruits:
                     continue
-                freshness = label_map_hf.get(row_data.get("label"), "fresh")
-                actual_cls = format_class_label(freshness, fruit)
-                target_cls_dir = raw_path / actual_cls
-                target_cls_dir.mkdir(parents=True, exist_ok=True)
-
-                img_info = row_data.get("image") or {}
+                freshness = label_map_hf.get(row.get("label"), "fresh")
+                cls_name = format_class_label(freshness, fruit)
+                img_info = row.get("image") or {}
                 src_url = img_info.get("src")
                 if not src_url:
                     continue
 
-                clean_path = src_url.split("?")[0]
-                ext = Path(clean_path).suffix.lower()
+                url_path = src_url.split("?", 1)[0]
+                ext = Path(url_path).suffix.lower()
                 if ext not in ALLOWED_EXTENSIONS:
                     ext = ".jpg"
 
-                dest_file = target_cls_dir / f"agml_raw_{row_idx:05d}{ext}"
-                download_tasks.append((src_url, dest_file, timeout))
+                out_file = raw_path / cls_name / f"agml_raw_{row_idx:04d}{ext}"
+                download_tasks.append((src_url, out_file, timeout))
 
-            fetched_rows += len(rows)
+            cursor += len(rows)
+            remaining -= len(rows)
 
     print(f"[data_loader] Downloading {len(download_tasks)} raw fruit images across {len(allowed_fruits) * 2} classes...")
-    succeeded = 0
+    newly_written = 0
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as pool:
-        for ok in pool.map(_download_single_asset, download_tasks):
-            if ok:
-                succeeded += 1
+        for wrote in pool.map(_download_single_asset, download_tasks):
+            if wrote:
+                newly_written += 1
 
-    # Recount actual valid files present per class directory
-    counts_per_class.clear()
+    counts_per_class: Dict[str, int] = {}
     for cls_dir in sorted(raw_path.iterdir()):
         if cls_dir.is_dir() and not cls_dir.name.startswith("."):
             files = [p for p in cls_dir.iterdir() if p.is_file() and p.suffix.lower() in ALLOWED_EXTENSIONS]
@@ -266,14 +196,14 @@ def download_agml_raw_dataset(
 
     return {
         "raw_dir": str(raw_path),
-        "downloaded_new_files": succeeded,
+        "samples_per_class_requested": per_class_limit,
+        "downloaded_new_files": newly_written,
         "total_files_on_disk": sum(counts_per_class.values()),
-        "counts_per_class": dict(sorted(counts_per_class.items())),
+        "counts_per_class": counts_per_class,
     }
 
 
-def _inspect_single_file(task: Tuple[Path, str]) -> Dict[str, Any]:
-    file_path, cls_name = task
+def _inspect_single_file(file_path: Path, cls_name: str) -> Dict[str, Any]:
     ext = file_path.suffix.lower()
     if ext not in ALLOWED_EXTENSIONS:
         return {
@@ -301,9 +231,15 @@ def _inspect_single_file(task: Tuple[Path, str]) -> Dict[str, Any]:
         }
 
     try:
-        img = validate_and_decode_bytes(raw_bytes, filename=file_path.name, max_bytes=40 * 1024 * 1024)
+        img = validate_and_decode_bytes(
+            raw_bytes, filename=file_path.name, max_bytes=40 * 1024 * 1024
+        )
+        width, height = img.width, img.height
+        mode = img.mode
+        fmt = img.format or ext.lstrip(".").upper()
         sha256 = compute_sha256_bytes(raw_bytes)
         dhash = compute_dhash(img)
+        img.close()
         parsed = parse_class_label(cls_name)
         return {
             "status": "valid",
@@ -311,10 +247,10 @@ def _inspect_single_file(task: Tuple[Path, str]) -> Dict[str, Any]:
             "label": cls_name,
             "fruit_type": parsed["fruit_type"],
             "freshness": parsed["freshness"],
-            "width": img.width,
-            "height": img.height,
-            "mode": img.mode,
-            "format": img.format or ext.lstrip(".").upper(),
+            "width": width,
+            "height": height,
+            "mode": mode,
+            "format": fmt,
             "byte_size": len(raw_bytes),
             "sha256": sha256,
             "dhash": dhash,
@@ -330,8 +266,11 @@ def _inspect_single_file(task: Tuple[Path, str]) -> Dict[str, Any]:
 
 def inspect_raw_dataset(
     raw_dir: Union[str, Path] = "data/raw",
-    max_workers: int = 4,
 ) -> Tuple[Dict[str, Any], List[DatasetRecord]]:
+    """
+    Sequentially inspect raw high-resolution photographs in a single heap arena
+    to avoid multi-arena memory fragmentation on 4000x3000 DSLR images.
+    """
     root = Path(raw_dir)
     if not root.exists():
         raise FileNotFoundError(f"Raw dataset directory does not exist: {root}")
@@ -362,32 +301,37 @@ def inspect_raw_dataset(
     fruit_counts: Counter = Counter()
     freshness_counts: Counter = Counter()
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as pool:
-        for res in pool.map(_inspect_single_file, tasks):
-            if res["status"] == "valid":
-                rec = DatasetRecord(
-                    path=res["path"],
-                    label=res["label"],
-                    fruit_type=res["fruit_type"],
-                    freshness=res["freshness"],
-                    width=res["width"],
-                    height=res["height"],
-                    sha256=res["sha256"],
-                    dhash=res["dhash"],
-                )
-                valid_records.append(rec)
-                widths.append(res["width"])
-                heights.append(res["height"])
-                byte_sizes.append(res["byte_size"])
-                color_modes[res["mode"]] += 1
-                formats[res["format"]] += 1
-                class_counts[res["label"]] += 1
-                fruit_counts[res["fruit_type"]] += 1
-                freshness_counts[res["freshness"]] += 1
-            elif res["status"] == "unsupported_extension":
-                unsupported_files.append({"path": res["path"], "reason": res["reason"]})
-            else:
-                corrupted_files.append({"path": res["path"], "reason": res["reason"]})
+    for idx, (f_path, cls_name) in enumerate(tasks):
+        res = _inspect_single_file(f_path, cls_name)
+        if res["status"] == "valid":
+            rec = DatasetRecord(
+                path=res["path"],
+                label=res["label"],
+                fruit_type=res["fruit_type"],
+                freshness=res["freshness"],
+                width=res["width"],
+                height=res["height"],
+                sha256=res["sha256"],
+                dhash=res["dhash"],
+            )
+            valid_records.append(rec)
+            widths.append(res["width"])
+            heights.append(res["height"])
+            byte_sizes.append(res["byte_size"])
+            color_modes[res["mode"]] += 1
+            formats[res["format"]] += 1
+            class_counts[res["label"]] += 1
+            fruit_counts[res["fruit_type"]] += 1
+            freshness_counts[res["freshness"]] += 1
+        elif res["status"] == "unsupported_extension":
+            unsupported_files.append({"path": res["path"], "reason": res["reason"]})
+        else:
+            corrupted_files.append({"path": res["path"], "reason": res["reason"]})
+
+        if (idx + 1) % 100 == 0:
+            gc.collect()
+
+    gc.collect()
 
     sha_counts = Counter(r.sha256 for r in valid_records)
     dhash_counts = Counter(r.dhash for r in valid_records)
@@ -442,16 +386,22 @@ def inspect_raw_dataset(
     return summary, valid_records
 
 
-def _load_and_resize_uint8(
+def _load_and_resize_into(
     record: DatasetRecord,
     config: PreprocessingConfig,
-) -> np.ndarray:
+    dest_slice: np.ndarray,
+) -> None:
     raw_bytes = Path(record.path).read_bytes()
     with Image.open(io.BytesIO(raw_bytes)) as img:
+        # Use draft decoding hint on large JPEGs for 4x lower decode memory while maintaining exact >=224px fidelity
+        if img.format == "JPEG" and (img.width > 900 or img.height > 900):
+            img.draft("RGB", (config.input_width * 2, config.input_height * 2))
         img.load()
         rgb = convert_to_rgb(img, bg_color=config.alpha_composite_bg)
         resized = resize_image(rgb, target_size=(config.input_height, config.input_width))
-        return np.asarray(resized, dtype=np.uint8)
+        dest_slice[:] = np.asarray(resized, dtype=np.uint8)
+        resized.close()
+        rgb.close()
 
 
 def prepare_dataset_splits_and_cache(
@@ -463,16 +413,17 @@ def prepare_dataset_splits_and_cache(
     train_ratio: float = 0.70,
     val_ratio: float = 0.15,
     test_ratio: float = 0.15,
-    max_workers: int = 4,
+    cleanup_raw: bool = False,
 ) -> Dict[str, Any]:
     cfg = config or PreprocessingConfig()
+    raw_path = Path(raw_dir)
     proc_path = Path(processed_dir)
     mod_path = Path(models_dir)
     sample_path = Path(sample_test_dir)
     proc_path.mkdir(parents=True, exist_ok=True)
     mod_path.mkdir(parents=True, exist_ok=True)
 
-    summary, valid_records = inspect_raw_dataset(raw_dir=raw_dir, max_workers=max_workers)
+    summary, valid_records = inspect_raw_dataset(raw_dir=raw_path)
     encoder = LabelEncoderMapping(summary["class_distribution"].keys())
     encoder.save(mod_path / "class_indices.json")
     cfg.save(mod_path / "preprocessing_config.json")
@@ -496,18 +447,25 @@ def prepare_dataset_splits_and_cache(
     class_weights = compute_balanced_class_weights(y_train, num_classes=encoder.num_classes)
 
     def _materialize_split(name: str, recs: List[DatasetRecord], labels: np.ndarray) -> str:
-        print(f"[data_loader] Materializing {name} split ({len(recs)} images -> {cfg.input_height}x{cfg.input_width} RGB)...")
-        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as pool:
-            arrays = list(pool.map(lambda r: _load_and_resize_uint8(r, cfg), recs))
-        x_arr = np.stack(arrays, axis=0).astype(np.uint8)
+        print(
+            f"[data_loader] Materializing {name} split ({len(recs)} images -> "
+            f"{cfg.input_height}x{cfg.input_width} RGB)..."
+        )
+        x_arr = np.empty((len(recs), cfg.input_height, cfg.input_width, cfg.channels), dtype=np.uint8)
+        for idx, rec in enumerate(recs):
+            _load_and_resize_into(rec, cfg, x_arr[idx])
+            if (idx + 1) % 100 == 0:
+                gc.collect()
         out_npz = proc_path / f"{name}_split.npz"
-        np.savez_compressed(
+        np.savez(
             out_npz,
             images=x_arr,
             labels=labels.astype(np.int64),
             paths=np.array([r.path for r in recs]),
             sha256=np.array([r.sha256 for r in recs]),
         )
+        del x_arr
+        gc.collect()
         return str(out_npz)
 
     train_npz = _materialize_split("train", train_recs, y_train)
@@ -526,12 +484,15 @@ def prepare_dataset_splits_and_cache(
         seen_sample_classes.add(rec.label)
         src_file = Path(rec.path)
         with Image.open(src_file) as im:
+            if im.format == "JPEG" and (im.width > 1024 or im.height > 1024):
+                im.draft("RGB", (640, 640))
             im.load()
             rgb = convert_to_rgb(im, bg_color=cfg.alpha_composite_bg)
-            rgb.thumbnail((560, 560), resample=Image.Resampling.LANCZOS)
+            rgb.thumbnail((480, 480), resample=Image.Resampling.LANCZOS)
             sample_filename = f"test_{rec.label}.jpg"
             dest_file = sample_path / sample_filename
-            rgb.save(dest_file, format="JPEG", quality=90)
+            rgb.save(dest_file, format="JPEG", quality=88)
+            rgb.close()
 
         parsed = parse_class_label(rec.label)
         exported_samples.append(
@@ -584,4 +545,32 @@ def prepare_dataset_splits_and_cache(
         json.dumps(summary, indent=2),
         encoding="utf-8",
     )
+
+    if cleanup_raw and raw_path.exists():
+        print("[data_loader] Cleaning up temporary raw DSLR directory to conserve container tmpfs memory...")
+        shutil.rmtree(raw_path, ignore_errors=True)
+        gc.collect()
+
     return summary
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Download, inspect, and split FreshScan AI dataset.")
+    parser.add_argument("--raw-dir", default="data/raw")
+    parser.add_argument("--processed-dir", default="data/processed")
+    parser.add_argument("--models-dir", default="models")
+    parser.add_argument("--max-per-class", type=int, default=35)
+    parser.add_argument("--cleanup-raw", action="store_true")
+    parser.add_argument("--seed", type=int, default=42)
+    args = parser.parse_args()
+
+    dl = download_agml_raw_dataset(raw_dir=args.raw_dir, max_per_class=args.max_per_class)
+    print(f"[data_loader] Downloaded: {dl['total_files_on_disk']} raw files.")
+    prep = prepare_dataset_splits_and_cache(
+        raw_dir=args.raw_dir,
+        processed_dir=args.processed_dir,
+        models_dir=args.models_dir,
+        config=PreprocessingConfig(random_seed=args.seed),
+        cleanup_raw=args.cleanup_raw,
+    )
+    print(f"[data_loader] Prepared splits: {prep['splits']['counts']}")

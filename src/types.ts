@@ -1,3 +1,13 @@
+export type SupportedFruitId =
+  | 'apple'
+  | 'banana'
+  | 'grape'
+  | 'guava'
+  | 'jujube'
+  | 'orange'
+  | 'pomegranate'
+  | 'strawberry';
+
 export interface ClassPrediction {
   class_index: number;
   class_label: string;
@@ -15,6 +25,7 @@ export interface SampleGroundTruth {
 }
 
 export interface PredictionResult {
+  model_version?: string;
   predicted_class: string;
   predicted_index: number;
   display_name: string;
@@ -69,10 +80,12 @@ export interface SampleTestItem {
 export interface HealthResponse {
   status: string;
   service: string;
+  model_version?: string;
   tensorflow_version: string;
   model_ready: boolean;
   missing_artifacts: string[];
   supported_extensions: string[];
+  max_upload_mb?: number;
   num_classes: number;
   classes: string[];
   food_safety_disclaimer: string;
@@ -234,6 +247,8 @@ export interface EvaluationReport {
 
 export interface AnalyticsBundle {
   available: boolean;
+  model_version?: string;
+  evaluated_at_utc?: string | null;
   unavailable_reasons: string[];
   dataset_summary: DatasetSummary | null;
   training_history: TrainingHistory | null;
@@ -242,10 +257,27 @@ export interface AnalyticsBundle {
 
 export interface GitHubStatusResponse {
   oauth_configured: boolean;
+  placeholder_credentials_detected?: boolean;
   authenticated: boolean;
   username: string | null;
   avatar_url: string | null;
   target_repo_name: string;
   dev_callback_url: string;
   shared_callback_url: string;
+}
+
+export interface DeployReadinessResponse {
+  ready_for_production: boolean;
+  python_bootstrapping: boolean;
+  model_size_mb: number;
+  checks: {
+    trained_model_saved: boolean;
+    class_mapping_verified: boolean;
+    preprocessing_config_saved: boolean;
+    heldout_evaluation_saved: boolean;
+    heldout_samples_bundled: boolean;
+    frontend_production_bundle: boolean;
+    dockerfile_present: boolean;
+    python_inference_engine_online: boolean;
+  };
 }

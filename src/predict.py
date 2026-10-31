@@ -12,6 +12,7 @@ import numpy as np
 
 from src.data_loader import parse_class_label
 from src.preprocessing import (
+    InvalidImageError,
     LabelEncoderMapping,
     PreprocessingConfig,
     preprocess_image_bytes,

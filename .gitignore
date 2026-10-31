@@ -2,8 +2,10 @@ node_modules/
 dist/
 server.js
 .vite/
+.venv
 .venv/
 venv/
+.aistudio/
 __pycache__/
 *.py[cod]
 *$py.class

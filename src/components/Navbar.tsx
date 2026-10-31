@@ -1,37 +1,40 @@
 import React from 'react';
 
-export type ActiveTab = 'scanner' | 'analytics' | 'dataset' | 'deploy';
+export type ActiveTab = 'overview' | 'scanner' | 'analytics' | 'dataset' | 'deploy';
 
 interface NavbarProps {
   activeTab: ActiveTab;
   onSelectTab: (tab: ActiveTab) => void;
-  onTriggerUpload: () => void;
+  onTriggerScanCta: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
   activeTab,
   onSelectTab,
-  onTriggerUpload,
+  onTriggerScanCta,
 }) => {
   const navItems: Array<{ id: ActiveTab; label: string }> = [
+    { id: 'overview', label: 'Overview' },
     { id: 'scanner', label: 'Scanner' },
     { id: 'analytics', label: 'Analytics' },
-    { id: 'dataset', label: 'Dataset' },
-    { id: 'deploy', label: 'GitHub & Deploy' },
+    { id: 'dataset', label: 'Model & Data' },
+    { id: 'deploy', label: 'Deploy' },
   ];
 
   return (
-    <header className="sticky top-0 z-30 bg-[#F7F8F5]/95 backdrop-blur-sm border-b border-[#DFE5DD]">
-      <div className="max-w-[1320px] mx-auto flex items-center justify-between gap-8 px-6 py-3.5">
+    <header className="sticky top-0 z-40 bg-[#070A08]/95 border-b border-[#18221D]">
+      <div className="max-w-[1320px] mx-auto flex items-center justify-between gap-8 px-4 sm:px-6 py-3.5">
+        {/* Zone 1: Single text element wordmark */}
         <button
           type="button"
-          onClick={() => onSelectTab('scanner')}
-          className="text-lg font-bold tracking-tight text-[#14241B] hover:text-[#1B4332] transition-colors whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-[#1B4332]"
+          onClick={() => onSelectTab('overview')}
+          className="font-display text-lg font-bold tracking-tight text-[#F3F7F4] hover:text-[#34D399] transition-colors whitespace-nowrap shrink-0 cursor-pointer focus-visible:outline-2 focus-visible:outline-[#10B981]"
         >
           FreshScan AI
         </button>
 
-        <nav aria-label="Primary" className="flex items-center gap-6 overflow-x-auto">
+        {/* Zone 2: 5 concise single-line text navigation links */}
+        <nav aria-label="Primary" className="flex items-center gap-5 sm:gap-7 overflow-x-auto">
           {navItems.map((item) => {
             const isActive = activeTab === item.id;
             return (
@@ -39,10 +42,10 @@ export const Navbar: React.FC<NavbarProps> = ({
                 key={item.id}
                 type="button"
                 onClick={() => onSelectTab(item.id)}
-                className={`py-1 text-sm font-medium transition-colors whitespace-nowrap shrink-0 border-b-2 focus-visible:outline-2 focus-visible:outline-[#1B4332] ${
+                className={`py-1 text-sm font-medium transition-colors whitespace-nowrap shrink-0 border-b-2 cursor-pointer focus-visible:outline-2 focus-visible:outline-[#10B981] ${
                   isActive
-                    ? 'border-[#1B4332] text-[#14241B] font-semibold'
-                    : 'border-transparent text-[#4A5D52] hover:text-[#14241B] hover:border-[#B7C4BC]'
+                    ? 'border-[#10B981] text-[#F3F7F4] font-semibold'
+                    : 'border-transparent text-[#8FA396] hover:text-[#F3F7F4] hover:border-[#2A3B32]'
                 }`}
               >
                 {item.label}
@@ -51,13 +54,14 @@ export const Navbar: React.FC<NavbarProps> = ({
           })}
         </nav>
 
+        {/* Zone 3: 1 primary action */}
         <div className="flex items-center shrink-0">
           <button
             type="button"
-            onClick={onTriggerUpload}
-            className="px-4 py-2 text-xs font-semibold text-white bg-[#1B4332] rounded-lg hover:bg-[#143326] transition-colors whitespace-nowrap shrink-0 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1B4332]"
+            onClick={onTriggerScanCta}
+            className="px-4 py-2 text-xs font-semibold text-white bg-[#059669] rounded-lg hover:bg-[#10B981] transition-colors whitespace-nowrap shrink-0 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#10B981]"
           >
-            Scan Fruit Image
+            Scan Your Produce
           </button>
         </div>
       </div>

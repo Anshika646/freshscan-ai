@@ -215,6 +215,7 @@ def preprocess_image_bytes(
         "byte_size": len(raw_bytes),
     }
     tensor = preprocess_pil_image(img, config=config, expand_batch=expand_batch)
+    img.close()
     return tensor, metadata
 
 
@@ -320,7 +321,7 @@ def split_dataset_leakage_safe(
     exact_duplicates_removed = 0
     conflicting_label_duplicates = 0
 
-    for _sha, group in sorted(sha_to_records.items(), key=lambda x: x[0]):
+    for sha, group in sorted(sha_to_records.items(), key=lambda x: x[0]):
         distinct_labels = {r.label for r in group}
         if len(distinct_labels) > 1:
             conflicting_label_duplicates += len(group)
@@ -339,7 +340,7 @@ def split_dataset_leakage_safe(
     class_to_clusters: Dict[str, List[List[DatasetRecord]]] = defaultdict(list)
     cross_class_clusters: List[List[DatasetRecord]] = []
 
-    for _dhash_key, cluster in sorted(dhash_groups.items(), key=lambda x: x[0]):
+    for dhash_key, cluster in sorted(dhash_groups.items(), key=lambda x: x[0]):
         labels_in_cluster = {r.label for r in cluster}
         if len(labels_in_cluster) == 1:
             label = next(iter(labels_in_cluster))
