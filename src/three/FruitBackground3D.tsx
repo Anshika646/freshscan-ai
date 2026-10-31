@@ -19,7 +19,7 @@ interface FruitBackground3DProps {
 }
 
 const DOCK_FRUITS: Array<{ id: SupportedFruitId | null; label: string }> = [
-  { id: null, label: 'All Orbit' },
+  { id: null, label: 'All 8 Orbit' },
   { id: 'apple', label: 'Apple' },
   { id: 'banana', label: 'Banana' },
   { id: 'orange', label: 'Orange' },
@@ -27,6 +27,7 @@ const DOCK_FRUITS: Array<{ id: SupportedFruitId | null; label: string }> = [
   { id: 'grape', label: 'Grape' },
   { id: 'pomegranate', label: 'Pomegranate' },
   { id: 'guava', label: 'Guava' },
+  { id: 'jujube', label: 'Jujube' },
 ];
 
 export const FruitBackground3D: React.FC<FruitBackground3DProps> = ({
@@ -69,10 +70,20 @@ export const FruitBackground3D: React.FC<FruitBackground3DProps> = ({
 
     const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
+    const isSoftwareGl = (() => {
+      const probeGl = document.createElement('canvas').getContext('webgl2');
+      if (!probeGl) return true;
+      const ext = probeGl.getExtension('WEBGL_debug_renderer_info');
+      const param = ext ? ext.UNMASKED_RENDERER_WEBGL : probeGl.RENDERER;
+      const gpu = String(probeGl.getParameter(param));
+      probeGl.getExtension('WEBGL_lose_context')?.loseContext();
+      return /SwiftShader|llvmpipe|softpipe|Software|Basic Render/i.test(gpu);
+    })();
+
     let renderer: THREE.WebGLRenderer;
     try {
       renderer = new THREE.WebGLRenderer({
-        antialias: true,
+        antialias: !isSoftwareGl,
         alpha: false,
         powerPreference: 'high-performance',
       });
@@ -81,15 +92,10 @@ export const FruitBackground3D: React.FC<FruitBackground3DProps> = ({
       return;
     }
 
-    const gl = renderer.getContext();
-    const dbg = gl.getExtension('WEBGL_debug_renderer_info');
-    const rendererInfo = dbg ? String(gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL)) : '';
-    const isSoftwareGl = /SwiftShader|llvmpipe|Software/i.test(rendererInfo);
-
-    renderer.setPixelRatio(isSoftwareGl ? 1 : Math.min(window.devicePixelRatio, 2));
+    renderer.setPixelRatio(isSoftwareGl ? 1 : Math.min(window.devicePixelRatio, 1.75));
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.08;
+    renderer.toneMappingExposure = 1.24;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.domElement.style.display = 'block';
     renderer.domElement.style.width = '100%';
@@ -97,9 +103,10 @@ export const FruitBackground3D: React.FC<FruitBackground3DProps> = ({
     container.appendChild(renderer.domElement);
 
     const scene = new THREE.Scene();
-    const bgHex = 0x070a08;
+    // Airy deep botanical slate-charcoal canvas so luminous fruits pop cleanly
+    const bgHex = 0x09100c;
     scene.background = new THREE.Color(bgHex);
-    scene.fog = new THREE.FogExp2(bgHex, 0.055);
+    scene.fog = new THREE.FogExp2(bgHex, 0.02);
 
     const camera = new THREE.PerspectiveCamera(
       42,
@@ -107,9 +114,9 @@ export const FruitBackground3D: React.FC<FruitBackground3DProps> = ({
       0.1,
       60,
     );
-    camera.position.set(0, 0.15, 7.6);
+    camera.position.set(0, 0.15, 7.7);
 
-    // Studio IBL reflections via RoomEnvironment + PMREMGenerator
+    // Bright studio IBL reflections via RoomEnvironment + PMREMGenerator
     const pmremGenerator = new THREE.PMREMGenerator(renderer);
     const roomEnv = new RoomEnvironment();
     const envTarget = pmremGenerator.fromScene(roomEnv, 0.04);
@@ -117,23 +124,23 @@ export const FruitBackground3D: React.FC<FruitBackground3DProps> = ({
     roomEnv.dispose();
     pmremGenerator.dispose();
 
-    // Three-point botanical studio lighting
-    const hemiLight = new THREE.HemisphereLight(0xdbeafe, 0x09120d, 0.55);
+    // Soft, luminous 3-point + hemisphere studio illumination (keeps fruit undersides light & airy)
+    const hemiLight = new THREE.HemisphereLight(0xf0fdf4, 0x1d3328, 1.15);
     scene.add(hemiLight);
 
-    const keyLight = new THREE.DirectionalLight(0xfff4e6, 2.25);
-    keyLight.position.set(5.5, 6.2, 5.8);
+    const keyLight = new THREE.DirectionalLight(0xfffbeb, 2.5);
+    keyLight.position.set(5.2, 6.5, 6.2);
     scene.add(keyLight);
 
-    const emeraldRimLight = new THREE.DirectionalLight(0x10b981, 1.35);
-    emeraldRimLight.position.set(-5.2, 2.4, -3.8);
+    const emeraldRimLight = new THREE.DirectionalLight(0x6ee7b7, 1.55);
+    emeraldRimLight.position.set(-5.4, 2.6, -3.5);
     scene.add(emeraldRimLight);
 
-    const warmFillLight = new THREE.DirectionalLight(0xfde68a, 0.48);
-    warmFillLight.position.set(-3.2, -3.5, 4.2);
-    scene.add(warmFillLight);
+    const softBounceLight = new THREE.DirectionalLight(0xfef3c7, 0.85);
+    softBounceLight.position.set(-2.5, -4.0, 4.8);
+    scene.add(softBounceLight);
 
-    // Build composite 3D botanical actors & precision calibrator ring
+    // Build all 8 lightweight composite 3D botanical actors & precision calibrator ring
     const registry = createDisposableRegistry();
     const actors = buildAllBotanicalFruitActors(registry);
     const stageGroup = new THREE.Group();
@@ -146,27 +153,27 @@ export const FruitBackground3D: React.FC<FruitBackground3DProps> = ({
     });
 
     const calibrator = createOpticalCalibratorGroup(registry);
-    calibrator.group.position.set(2.35, 0.32, 0.25);
+    calibrator.group.position.set(2.25, 0.38, 0.25);
     calibrator.group.rotation.set(0.18, -0.32, 0);
     stageGroup.add(calibrator.group);
 
-    // Subtle spatial depth dust points (adds 3D parallax reference on scroll)
-    const sporeCount = isSoftwareGl ? 48 : 110;
+    // Featherlight botanical pollen/depth motes for 3D scroll parallax
+    const sporeCount = isSoftwareGl ? 36 : 80;
     const sporePositions = new Float32Array(sporeCount * 3);
     for (let i = 0; i < sporeCount; i++) {
-      sporePositions[i * 3] = ((i * 73) % 100) / 100 * 14 - 7;
-      sporePositions[i * 3 + 1] = ((i * 41) % 100) / 100 * 12 - 6;
-      sporePositions[i * 3 + 2] = -(((i * 29) % 100) / 100 * 7) - 1.2;
+      sporePositions[i * 3] = (((i * 73) % 100) / 100) * 14 - 7;
+      sporePositions[i * 3 + 1] = (((i * 41) % 100) / 100) * 12 - 6;
+      sporePositions[i * 3 + 2] = -((((i * 29) % 100) / 100) * 6.5) - 1.0;
     }
     const sporeGeo = new THREE.BufferGeometry();
     sporeGeo.setAttribute('position', new THREE.BufferAttribute(sporePositions, 3));
     registry.geometries.push(sporeGeo);
     const sporeMat = new THREE.PointsMaterial({
-      color: 0x34d399,
-      size: 0.032,
+      color: 0x6ee7b7,
+      size: 0.03,
       sizeAttenuation: true,
       transparent: true,
-      opacity: 0.26,
+      opacity: 0.28,
     });
     registry.materials.push(sporeMat);
     const sporePoints = new THREE.Points(sporeGeo, sporeMat);
@@ -174,15 +181,17 @@ export const FruitBackground3D: React.FC<FruitBackground3DProps> = ({
 
     // Pre-allocated scratch math vectors (zero per-frame heap allocations)
     const targetPos = new THREE.Vector3();
-    const focalSlot = new THREE.Vector3(2.35, 0.22, 0.55);
-    const camTargetPos = new THREE.Vector3(0, 0.15, 7.6);
-    const camLookTarget = new THREE.Vector3(0.35, 0.0, 0);
-    const currentLookTarget = new THREE.Vector3(0.35, 0.0, 0);
+    const focalSlot = new THREE.Vector3(2.25, 0.26, 0.65);
+    const camTargetPos = new THREE.Vector3(0, 0.15, 7.7);
+    const camLookTarget = new THREE.Vector3(0.3, 0.0, 0);
+    const currentLookTarget = new THREE.Vector3(0.3, 0.0, 0);
     const targetScaleVec = new THREE.Vector3();
 
     const pointer = { x: 0, y: 0 };
     const smoothedPointer = { x: 0, y: 0 };
     let smoothedScroll = scrollProgressRef.current;
+    let prevRawScroll = scrollProgressRef.current;
+    let scrollVelocity = 0;
 
     const handlePointerMove = (e: PointerEvent) => {
       pointer.x = (e.clientX / Math.max(1, window.innerWidth)) * 2 - 1;
@@ -195,33 +204,34 @@ export const FruitBackground3D: React.FC<FruitBackground3DProps> = ({
       camera.aspect = w / h;
       camera.updateProjectionMatrix();
       renderer.setSize(w, h);
-      renderer.setPixelRatio(isSoftwareGl ? 1 : Math.min(window.devicePixelRatio, 2));
+      renderer.setPixelRatio(isSoftwareGl ? 1 : Math.min(window.devicePixelRatio, 1.75));
     };
 
     window.addEventListener('pointermove', handlePointerMove, { passive: true });
     window.addEventListener('resize', handleResize);
 
     let disposed = false;
-    let rafId = 0;
+    let frameId = 0;
+    const gl = renderer.getContext();
 
     function afterDraw(cb: () => void): void {
       if (!(gl instanceof WebGL2RenderingContext)) {
-        setTimeout(cb, 16);
+        frameId = window.setTimeout(cb, 80);
         return;
       }
       const sync = gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0);
       gl.flush();
       const poll = () => {
         if (disposed || !sync) return;
-        const status = gl.clientWaitSync(sync, 0, 0);
-        if (status === gl.ALREADY_SIGNALED || status === gl.CONDITION_SATISFIED) {
-          gl.deleteSync(sync);
-          cb();
+        const state = gl.getSyncParameter(sync, gl.SYNC_STATUS);
+        if (state === gl.UNSIGNALED) {
+          frameId = window.setTimeout(poll, 5);
         } else {
-          setTimeout(poll, 4);
+          gl.deleteSync(sync);
+          frameId = window.setTimeout(cb, 80);
         }
       };
-      setTimeout(poll, 4);
+      frameId = window.setTimeout(poll, 5);
     }
 
     let prevTime = performance.now();
@@ -244,8 +254,13 @@ export const FruitBackground3D: React.FC<FruitBackground3DProps> = ({
         resetImpulseRef.current = false;
       }
 
-      const damp = 1 - Math.exp(-5.0 * dt);
-      const rawScroll = isOverviewRef.current ? scrollProgressRef.current : 0.22;
+      const damp = 1 - Math.exp(-5.8 * dt);
+      const rawScroll = isOverviewRef.current ? scrollProgressRef.current : 0.2;
+      const rawDelta = rawScroll - prevRawScroll;
+      prevRawScroll = rawScroll;
+
+      // Capture GSAP scroll velocity so fruits float & spin with a weightless breeze on scroll
+      scrollVelocity = THREE.MathUtils.lerp(scrollVelocity, rawDelta / Math.max(dt, 0.008), 0.18);
       smoothedScroll = THREE.MathUtils.lerp(smoothedScroll, rawScroll, damp);
       smoothedPointer.x = THREE.MathUtils.lerp(smoothedPointer.x, pointer.x, damp);
       smoothedPointer.y = THREE.MathUtils.lerp(smoothedPointer.y, pointer.y, damp);
@@ -254,59 +269,59 @@ export const FruitBackground3D: React.FC<FruitBackground3DProps> = ({
       const focusId = focusedFruitRef.current;
       const scanningActive = isScanningRef.current;
 
-      // Scroll-choreographed camera dolly & subtle vertical glide
-      const scrollAngle = smoothedScroll * Math.PI * 0.85;
+      // GSAP Scroll-choreographed camera glide
+      const scrollArc = smoothedScroll * Math.PI * 1.1;
       camTargetPos.set(
-        smoothedPointer.x * 0.42 + Math.sin(scrollAngle) * 0.55,
-        0.15 + smoothedPointer.y * 0.28 - smoothedScroll * 0.75,
-        (isMobileViewport ? 9.2 : 7.55) + Math.sin(smoothedScroll * Math.PI) * 0.85,
+        smoothedPointer.x * 0.45 + Math.sin(scrollArc) * 0.62,
+        0.16 + smoothedPointer.y * 0.3 - smoothedScroll * 0.65,
+        (isMobileViewport ? 9.1 : 7.65) + Math.sin(smoothedScroll * Math.PI) * 0.7,
       );
       camera.position.lerp(camTargetPos, damp);
 
       camLookTarget.set(
-        isMobileViewport ? 0 : 0.45 - smoothedScroll * 0.65,
-        -smoothedScroll * 0.35,
+        isMobileViewport ? 0 : 0.35 - smoothedScroll * 0.55,
+        -smoothedScroll * 0.28,
         0,
       );
       currentLookTarget.lerp(camLookTarget, damp);
       camera.lookAt(currentLookTarget);
 
-      // Update each composite 3D botanical fruit along its scroll + orbital trajectory
-      focalSlot.set(isMobileViewport ? 0 : 2.35, isMobileViewport ? 0.9 : 0.22, 0.55);
+      // Spotlight slot for whichever fruit is focused by the single-slide GSAP scroll showcase
+      focalSlot.set(isMobileViewport ? 0 : 2.35, isMobileViewport ? 0.95 : 0.28, 0.75);
 
       let calibratorAnchorActor = actors[0];
 
       for (let i = 0; i < actors.length; i++) {
         const actor = actors[i];
-        const isFocused = focusId === actor.id || (focusId === 'jujube' && actor.id === 'apple');
+        const isFocused = focusId === actor.id;
 
         if (isFocused) {
           calibratorAnchorActor = actor;
           targetPos.copy(focalSlot);
-          targetPos.y += Math.sin(elapsedOrbitTime * 1.4) * 0.08;
+          targetPos.y += Math.sin(elapsedOrbitTime * 1.65) * 0.1;
         } else {
-          // Scroll-linked 3D orbital choreography + gentle harmonic bobbing
+          // Weightless 3D GSAP scroll helix + buoyant harmonic float
           const s = smoothedScroll;
-          const swirlAngle = s * 1.45 + actor.floatPhase * 0.25;
-          const cosA = Math.cos(swirlAngle * 0.35);
-          const sinA = Math.sin(swirlAngle * 0.35);
+          const swirlAngle = s * Math.PI * 1.35 + actor.floatPhase * 0.32;
+          const cosA = Math.cos(swirlAngle * 0.45);
+          const sinA = Math.sin(swirlAngle * 0.45);
 
-          const baseX = actor.homePos.x + actor.scrollDrift.x * s;
+          const baseX = actor.homePos.x + actor.scrollDrift.x * Math.sin(s * Math.PI * 0.95);
           const baseY =
             actor.homePos.y +
-            actor.scrollDrift.y * Math.sin(s * Math.PI * 0.92) +
-            Math.sin(elapsedOrbitTime * 1.05 + actor.floatPhase) * 0.14;
+            actor.scrollDrift.y * s * 0.65 +
+            Math.sin(elapsedOrbitTime * 1.25 + actor.floatPhase) * 0.19 +
+            THREE.MathUtils.clamp(scrollVelocity * 0.12, -0.35, 0.35);
           const baseZ = actor.homePos.z + actor.scrollDrift.z * Math.sin(s * Math.PI);
 
           targetPos.set(
-            baseX * cosA - baseZ * sinA * 0.22,
+            baseX * cosA - baseZ * sinA * 0.28,
             baseY,
-            baseZ + (focusId ? -0.9 : 0) + (!isOverviewRef.current ? -1.15 : 0),
+            baseZ + (focusId ? -0.85 : 0) + (!isOverviewRef.current ? -1.0 : 0),
           );
 
-          // If focusId is null and Apple is in hero position, push other fruits cleanly clear
           if (focusId && actor.id === 'apple') {
-            targetPos.set(-2.2, 1.85, -1.9);
+            targetPos.set(-2.35, 1.75, -1.65);
           }
         }
 
@@ -314,61 +329,54 @@ export const FruitBackground3D: React.FC<FruitBackground3DProps> = ({
 
         const desiredScale =
           actor.baseScale *
-          (isFocused ? 1.24 : focusId ? 0.82 : 1.0) *
-          (!isOverviewRef.current ? 0.88 : 1.0);
+          (isFocused ? 1.34 : focusId ? 0.84 : 1.0) *
+          (!isOverviewRef.current ? 0.9 : 1.0);
         targetScaleVec.setScalar(desiredScale);
         actor.group.scale.lerp(targetScaleVec, damp);
 
         if (!prefersReducedMotion && !orbitPausedRef.current) {
           const speedBoost = scanningActive && (isFocused || (!focusId && i === 0)) ? 2.6 : 1.0;
-          actor.group.rotation.x += actor.rotSpeed.x * dt * speedBoost;
-          actor.group.rotation.y +=
-            actor.rotSpeed.y * dt * speedBoost + (sDeltaRotation(smoothedScroll) * 0.002);
-          actor.group.rotation.z += actor.rotSpeed.z * dt * speedBoost;
+          const scrollSpin = THREE.MathUtils.clamp(scrollVelocity * 1.8, -4.5, 4.5);
+          actor.group.rotation.x += (actor.rotSpeed.x * speedBoost + scrollSpin * 0.25) * dt;
+          actor.group.rotation.y += (actor.rotSpeed.y * speedBoost + scrollSpin * 0.65) * dt;
+          actor.group.rotation.z += actor.rotSpeed.z * speedBoost * dt;
         }
       }
 
-      // Precision optical calibrator ring tracks the focal hero specimen
-      calibrator.group.position.lerp(calibratorAnchorActor.group.position, damp * 1.2);
+      calibrator.group.position.lerp(calibratorAnchorActor.group.position, damp * 1.25);
       calibrator.group.rotation.y =
-        -0.32 + smoothedPointer.x * 0.25 + Math.sin(elapsedOrbitTime * 0.6) * 0.14;
+        -0.32 + smoothedPointer.x * 0.25 + Math.sin(elapsedOrbitTime * 0.65) * 0.15;
       calibrator.group.rotation.x = 0.18 - smoothedPointer.y * 0.18 + smoothedScroll * 0.45;
-      calibrator.innerRing.rotation.z = elapsedOrbitTime * (scanningActive ? 2.4 : 0.45);
+      calibrator.innerRing.rotation.z = elapsedOrbitTime * (scanningActive ? 2.4 : 0.5);
 
-      const targetReticleOpacity = !isOverviewRef.current && !scanningActive ? 0.14 : scanningActive ? 0.72 : 0.34;
+      const targetReticleOpacity =
+        !isOverviewRef.current && !scanningActive ? 0.12 : scanningActive ? 0.68 : 0.28;
       calibrator.reticleMat.opacity = THREE.MathUtils.lerp(
         calibrator.reticleMat.opacity,
         targetReticleOpacity,
         damp,
       );
 
-      sporePoints.rotation.y = elapsedOrbitTime * 0.03 + smoothedScroll * 0.35;
-      sporePoints.position.y = smoothedScroll * 1.1;
+      sporePoints.rotation.y = elapsedOrbitTime * 0.035 + smoothedScroll * 0.45;
+      sporePoints.position.y = smoothedScroll * 1.25;
 
       renderer.render(scene, camera);
 
       if (prefersReducedMotion) {
-        // Render once on state changes or resize without continuous motion
-        rafId = window.setTimeout(tick, 250);
+        frameId = window.setTimeout(tick, 250);
       } else if (isSoftwareGl) {
-        afterDraw(() => {
-          if (!disposed) rafId = requestAnimationFrame(tick);
-        });
+        afterDraw(tick);
       } else {
-        rafId = requestAnimationFrame(tick);
+        frameId = requestAnimationFrame(tick);
       }
     };
 
-    function sDeltaRotation(s: number): number {
-      return Math.sin(s * Math.PI * 2);
-    }
-
-    rafId = requestAnimationFrame(tick);
+    frameId = requestAnimationFrame(tick);
 
     return () => {
       disposed = true;
-      cancelAnimationFrame(rafId);
-      clearTimeout(rafId);
+      cancelAnimationFrame(frameId);
+      clearTimeout(frameId);
       window.removeEventListener('pointermove', handlePointerMove);
       window.removeEventListener('resize', handleResize);
       envTarget.dispose();
@@ -389,17 +397,17 @@ export const FruitBackground3D: React.FC<FruitBackground3DProps> = ({
         className="fixed inset-0 w-screen h-screen z-0 pointer-events-none"
       >
         {!webglAvailable && (
-          <div className="w-full h-full bg-[radial-gradient(circle_at_72%_32%,#0D261B_0%,#070A08_62%)]" />
+          <div className="w-full h-full bg-[radial-gradient(circle_at_72%_32%,#123123_0%,#09100C_68%)]" />
         )}
       </div>
 
-      {/* Measured Readability Vignette Over 3D Scene (Zero backdrop-filter for GPU frame pacing) */}
+      {/* Whisper-Light Contrast Vignette so Luminous 3D Fruits Stay Crisp & Airy */}
       <div
         aria-hidden="true"
-        className="fixed inset-0 z-[1] pointer-events-none bg-[radial-gradient(circle_at_75%_38%,rgba(7,10,8,0.22)_0%,rgba(7,10,8,0.74)_62%,rgba(7,10,8,0.92)_100%)]"
+        className="fixed inset-0 z-[1] pointer-events-none bg-[radial-gradient(circle_at_68%_40%,rgba(9,16,12,0.08)_0%,rgba(9,16,12,0.38)_64%,rgba(9,16,12,0.66)_100%)]"
       />
 
-      {/* Collapsible Bottom-Right 3D Scene Dock (<= 10% viewport footprint, solid dark surface) */}
+      {/* Collapsible Bottom-Right 3D Scene Dock (<= 10% viewport footprint) */}
       {webglAvailable && (
         <aside
           aria-label="3D Botanical Scene Controls"
@@ -409,15 +417,15 @@ export const FruitBackground3D: React.FC<FruitBackground3DProps> = ({
             <button
               type="button"
               onClick={() => setDockOpen(true)}
-              className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-medium text-[#D1DDD5] bg-[#0D1310] border border-[#1E2B24] rounded-lg hover:border-[#10B981]/60 hover:text-white transition-colors shadow-lg whitespace-nowrap shrink-0 cursor-pointer"
+              className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-medium text-[#DCFCE7] bg-[#0E1712] border border-[#24382E] rounded-lg hover:border-[#34D399]/70 hover:text-white transition-colors shadow-lg whitespace-nowrap shrink-0 cursor-pointer"
             >
-              <SlidersHorizontal className="w-3.5 h-3.5 text-[#10B981]" />
+              <SlidersHorizontal className="w-3.5 h-3.5 text-[#34D399]" />
               <span>3D Produce Stage</span>
             </button>
           ) : (
-            <div className="bg-[#0D1310] border border-[#1E2B24] rounded-xl p-3.5 shadow-2xl w-[308px] space-y-3">
+            <div className="bg-[#0E1712] border border-[#24382E] rounded-xl p-3.5 shadow-2xl w-[312px] space-y-3">
               <div className="flex items-center justify-between gap-2">
-                <span className="text-xs font-semibold text-[#EEF3EF]">
+                <span className="text-xs font-semibold text-[#F0F7F2]">
                   3D Botanical Specimen Stage
                 </span>
                 <div className="flex items-center gap-1.5">
@@ -425,7 +433,7 @@ export const FruitBackground3D: React.FC<FruitBackground3DProps> = ({
                     type="button"
                     onClick={() => setOrbitPaused((p) => !p)}
                     title={orbitPaused ? 'Resume 3D Orbit' : 'Pause 3D Orbit'}
-                    className="p-1.5 text-[#94A89B] hover:text-white bg-[#131C17] border border-[#1E2B24] rounded-md transition-colors cursor-pointer"
+                    className="p-1.5 text-[#9EB5A7] hover:text-white bg-[#15211B] border border-[#24382E] rounded-md transition-colors cursor-pointer"
                   >
                     {orbitPaused ? <Play className="w-3.5 h-3.5" /> : <Pause className="w-3.5 h-3.5" />}
                   </button>
@@ -437,7 +445,7 @@ export const FruitBackground3D: React.FC<FruitBackground3DProps> = ({
                       setOrbitPaused(false);
                     }}
                     title="Reset 3D Stage"
-                    className="p-1.5 text-[#94A89B] hover:text-white bg-[#131C17] border border-[#1E2B24] rounded-md transition-colors cursor-pointer"
+                    className="p-1.5 text-[#9EB5A7] hover:text-white bg-[#15211B] border border-[#24382E] rounded-md transition-colors cursor-pointer"
                   >
                     <RotateCcw className="w-3.5 h-3.5" />
                   </button>
@@ -445,14 +453,14 @@ export const FruitBackground3D: React.FC<FruitBackground3DProps> = ({
                     type="button"
                     onClick={() => setDockOpen(false)}
                     title="Minimize 3D Controls"
-                    className="p-1.5 text-[#94A89B] hover:text-white bg-[#131C17] border border-[#1E2B24] rounded-md transition-colors cursor-pointer"
+                    className="p-1.5 text-[#9EB5A7] hover:text-white bg-[#15211B] border border-[#24382E] rounded-md transition-colors cursor-pointer"
                   >
                     <ChevronDown className="w-3.5 h-3.5" />
                   </button>
                 </div>
               </div>
 
-              <div className="grid grid-cols-4 gap-1.5">
+              <div className="grid grid-cols-3 gap-1.5">
                 {DOCK_FRUITS.map((item) => {
                   const active = focusedFruit === item.id;
                   return (
@@ -460,10 +468,10 @@ export const FruitBackground3D: React.FC<FruitBackground3DProps> = ({
                       key={item.label}
                       type="button"
                       onClick={() => onSelectFocusFruit(item.id)}
-                      className={`px-2 py-1.5 text-[11px] font-medium rounded-md transition-colors truncate cursor-pointer ${
+                      className={`px-2 py-1.5 text-[11px] font-medium rounded-md border transition-colors whitespace-nowrap truncate cursor-pointer ${
                         active
-                          ? 'bg-[#059669] text-white font-semibold'
-                          : 'bg-[#131C17] text-[#94A89B] hover:text-[#EEF3EF]'
+                          ? 'bg-[#059669] border-[#34D399] text-white'
+                          : 'bg-[#131E18] border-[#22352B] text-[#B4C6BB] hover:text-white hover:border-[#345042]'
                       }`}
                     >
                       {item.label}

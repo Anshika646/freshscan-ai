@@ -149,7 +149,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#070A08] text-[#EEF3EF] relative">
+    <div className="min-h-screen flex flex-col bg-[#09100C] text-[#EEF3EF] relative overflow-x-clip">
       {/* Interactive Three.js 3D Botanical Fruits Background Scene */}
       <FruitBackground3D
         scrollProgressRef={scrollProgressRef}

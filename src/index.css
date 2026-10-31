@@ -27,6 +27,15 @@
   font-variant-numeric: tabular-nums;
 }
 
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
 @keyframes freshscanLaserSweep {
   0% {
     transform: translateY(0%);
